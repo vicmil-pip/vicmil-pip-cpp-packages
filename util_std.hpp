@@ -1111,4 +1111,107 @@ namespace vicmil
         }
         return nullptr;
     }
+
+    // ============================================================
+    //                  Rectangles and Shapes
+    // ============================================================
+    /**
+     * General template class for rectangle
+     */
+    template <class T>
+    class RectT
+    {
+    public:
+        T x = 0;
+        T y = 0;
+        T w = 0;
+        T h = 0;
+        RectT() {}
+        RectT(T x_, T y_, T w_, T h_)
+        {
+            x = x_;
+            y = y_;
+            w = w_;
+            h = h_;
+        }
+        T min_x() const
+        {
+            return x;
+        }
+        T max_x() const
+        {
+            return x + w;
+        }
+        T min_y() const
+        {
+            return y;
+        }
+        T max_y() const
+        {
+            return y + h;
+        }
+        T center_x() const
+        {
+            return x + (w / 2.0);
+        }
+        T center_y() const
+        {
+            return y + (h / 2.0);
+        }
+        /**
+         * Determine if a value is in range
+         * Returns true if min_v <= v <= max_v
+         */
+        template <class T2>
+        static inline bool _in_range(T2 v, T2 min_v, T2 max_v)
+        {
+            if (v < min_v)
+            {
+                return false;
+            }
+            if (v > max_v)
+            {
+                return false;
+            }
+            return true;
+        }
+        bool is_inside_rect(T x_, T y_) const
+        {
+            if (!_in_range<T>(x_, x, x + w))
+            {
+                return false;
+            }
+            if (!_in_range<T>(y_, y, y + h))
+            {
+                return false;
+            }
+            return true;
+        }
+        std::string to_string() const
+        {
+            return "x: " + std::to_string(x) +
+                   "   y: " + std::to_string(y) +
+                   "   w: " + std::to_string(w) +
+                   "   h: " + std::to_string(h);
+        }
+        std::string to_string_min_max() const
+        {
+            return "min_x: " + std::to_string(min_x()) +
+                   "   min_y: " + std::to_string(min_y()) +
+                   "   max_x: " + std::to_string(max_x()) +
+                   "   max_y: " + std::to_string(max_y());
+        }
+        bool operator==(const RectT<T> other) const
+        {
+            return x == other.x &&
+                   y == other.y &&
+                   w == other.w &&
+                   h == other.h;
+        }
+        bool operator!=(const RectT<T> other) const
+        {
+            return !(*this == other);
+        }
+    };
+    typedef RectT<double> Rect;
 }
