@@ -64,6 +64,23 @@ class BuildSetup:
         self.add_other_build_setup(new_build_setup)
 
 
+    def add_vicmil_pip_package(self, package_name: str):
+        package_path = path_traverse_up(__file__, 1) + "/" + package_name
+        if os.path.exists(package_path + "/cpp_build.py"):
+            print(f"including {package_name} cpp_build config")
+
+            # Load the file
+            spec = importlib.util.spec_from_file_location(package_name, package_path + "/cpp_build.py")
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+
+            # Load the config from the file
+            new_build_setup: BuildSetup = module.get_build_setup(self.browser_flag)  # Call a function from the script
+
+            # Add config to build setup
+            self.add_other_build_setup(new_build_setup)
+
+
     def add_installed_vicmil_pip_packages(self):
         # Iterate through all installed vicmil pip packages
         # For each package:
@@ -82,20 +99,7 @@ class BuildSetup:
         print(f"found {len(folders)} installed packages")
         print(folders)
         for package_name in folders:
-            package_path = path_traverse_up(__file__, 1) + "/" + package_name
-            if os.path.exists(package_path + "/cpp_build.py"):
-                print(f"including {package_name} cpp_build config")
-
-                # Load the file
-                spec = importlib.util.spec_from_file_location(package_name, package_path + "/cpp_build.py")
-                module = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(module)
-
-                # Load the config from the file
-                new_build_setup: BuildSetup = module.get_build_setup(self.browser_flag)  # Call a function from the script
-
-                # Add config to build setup
-                self.add_other_build_setup(new_build_setup)
+            self.add_vicmil_pip_package(package_name)
 
 
     def add_other_build_setup(self, other):
