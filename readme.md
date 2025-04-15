@@ -14,9 +14,9 @@ The purpose of this project is to provide a standard c++ compiler for each platf
 
 Just run setup.py, it will
 
-For linux, install a minimal build of clang(~880 MB) inside /clang
+For linux, install gcc(~1.5GB) inside /gcc-13.2.0
 
-For windows, install mingw64 build(~460 MB) inside /mingw64
+For windows, install mingw64(~460 MB) inside /mingw64
 
 ## Note
 
