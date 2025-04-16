@@ -55,7 +55,6 @@ def get_build_setup(browser: bool):
     else:
         new_build_setup.n5_additional_compiler_settings.append("-s USE_SDL=2")
         new_build_setup.n5_additional_compiler_settings.append("-s USE_SDL_IMAGE=2")
-        new_build_setup.n5_additional_compiler_settings.append("-s EXTRA_EXPORTED_RUNTIME_METHODS=ccall,cwrap")
         new_build_setup.n5_additional_compiler_settings.append("-s FULL_ES3=1")
 
     return new_build_setup
