@@ -168,13 +168,8 @@ namespace vicmil
             z = z_;
         }
     };
-
-    struct Coord_XYZ_f : public XYZ_f
-    {
-    };
-    struct Normal_XYZ_f : public XYZ_f
-    {
-    };
+    typedef XYZ_f Coord_XYZ_f;
+    typedef XYZ_f Normal_XYZ_f;
 
     struct TexCoord_UV_f
     {
