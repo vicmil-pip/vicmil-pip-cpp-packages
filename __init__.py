@@ -7,6 +7,7 @@ from pathlib import Path
 import importlib.util
 
 sys.path.append(str(Path(__file__).resolve().parents[1])) 
+sys.path.append(str(Path(__file__).resolve().parents[2])) 
 
 
 """
@@ -272,13 +273,16 @@ def launch_html_page(html_file_path: str):
 
 # Get the defualt compiler path within vicmil lib
 def get_default_compiler_path(browser = False):
-    platform_name = platform.system()
-
     if not browser:
-        return "g++"
+        if os.path.exists(path_traverse_up(__file__, 1) + "/cppBasicCompiler"):
+            import packages.cppBasicCompiler.setup as compiler_setup
+            compiler_setup.add_env_paths_to_compiler()
+            return compiler_setup.get_compiler_path()
+        else:
+            return "g++"
 
     else:
-        if platform_name == "Windows": # Windows
+        if platform.system() == "Windows": # Windows
             return '"' + path_traverse_up(__file__, 1) + "/cppEmsdk/emsdk/upstream/emscripten/em++.bat" + '"'
         else:
             return '"' + path_traverse_up(__file__, 1) + "/cppEmsdk/emsdk/upstream/emscripten/em++" + '"'
