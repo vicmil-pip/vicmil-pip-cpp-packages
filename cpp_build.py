@@ -19,7 +19,7 @@ def get_build_setup(browser: bool):
         platform_name = platform.system()
 
         if platform_name == "Windows": # Windows
-            dependencies_directory = new_build_setup.vicmil_pip_path + "/sdl_opengl"
+            dependencies_directory = path_traverse_up(__file__, 0) + "/sdl_opengl"
 
             # SDL
             new_build_setup.n6_include_paths.append('-I"' + dependencies_directory + "/sdl_mingw/SDL2-2.30.7/x86_64-w64-mingw32/include/SDL2" + '"')
