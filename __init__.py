@@ -34,10 +34,10 @@ class BuildSetup:
         self.browser_flag = browser
 
         
-    def add_default_parameters(self, cpp_file_paths: List[str], output_dir: str, browser = False, O2_optimization=True):
+    def add_default_parameters(self, cpp_file_paths: List[str], output_dir: str, O2_optimization=True):
         # Set compiler path, and output path
-        self.n1_compiler_path: str = get_default_compiler_path(browser=browser)
-        self.n9_output_file: str = output_dir + "/" + get_default_output_file(browser=browser)
+        self.n1_compiler_path: str = get_default_compiler_path(browser=self.browser_flag)
+        self.n9_output_file: str = output_dir + "/" + get_default_output_file(browser=self.browser_flag)
 
 
         # Add other paramters
@@ -58,7 +58,7 @@ class BuildSetup:
             # Add additional flags when compiling with emscripten
             new_build_setup.n5_additional_compiler_settings.append("-s ASYNCIFY=1") # Enable sleep with emscripten
             new_build_setup.n5_additional_compiler_settings.append("-s ALLOW_MEMORY_GROWTH") # Do not limit the app to a small amount of memory
-            new_build_setup.n5_additional_compiler_settings.append("-s EXTRA_EXPORTED_RUNTIME_METHODS=ccall,cwrap")
+            new_build_setup.n5_additional_compiler_settings.append("-s EXPORTED_RUNTIME_METHODS=ccall,cwrap")
             new_build_setup.n8_library_files.append("-lembind") # Allow binding javascript functions from c++
 
         self.add_other_build_setup(new_build_setup)
@@ -279,9 +279,9 @@ def get_default_compiler_path(browser = False):
 
     else:
         if platform_name == "Windows": # Windows
-            return '"' + path_traverse_up(__file__, 2) + "/emsdk/emsdk/upstream/emscripten/em++.bat" + '"'
+            return '"' + path_traverse_up(__file__, 1) + "/cppEmsdk/emsdk/upstream/emscripten/em++.bat" + '"'
         else:
-            return '"' + path_traverse_up(__file__, 2) + "/emsdk/emsdk/upstream/emscripten/em++" + '"'
+            return '"' + path_traverse_up(__file__, 1) + "/cppEmsdk/emsdk/upstream/emscripten/em++" + '"'
 
     
 def convert_file_to_header(input_file: str, output_header: str=None):
