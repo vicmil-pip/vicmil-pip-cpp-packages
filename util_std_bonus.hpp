@@ -238,4 +238,113 @@ namespace vicmil
             v = v_;
         }
     };
+
+    /**
+     * Generate all kinds of random numbers, from floats to integers in different ranges!
+     */
+    class RandomNumberGenerator
+    {
+    public:
+        std::mt19937 _gen;
+        RandomNumberGenerator() : _gen(std::mt19937())
+        {
+            set_random_seed(); // Default to random seed
+        }
+
+        RandomNumberGenerator copy()
+        {
+            RandomNumberGenerator new_rand_gen;
+            new_rand_gen._gen = _gen; // Performs copy
+            return new_rand_gen;
+        }
+
+        /** Seed the random number generator with the specified seed */
+        void set_seed(uint64_t new_seed = std::mt19937_64::default_seed)
+        {
+            _gen.seed(new_seed);
+        }
+        /** Seed the random number generator with a random seed(based on current time) */
+        void set_random_seed()
+        {
+            uint64_t time_ms = get_time_since_epoch_ms();
+            set_seed(time_ms);
+            // Call random generator a few times to make it more random
+            //   (each call to _gen updates the state randomly)
+            rand();
+            rand();
+            rand();
+            rand();
+            rand();
+        }
+
+        /** Generate a random number between 0 and 1 */
+        double rand_between_0_and_1()
+        {
+            std::uniform_real_distribution<double> dis(0.0, 1.0);
+            double x = dis(_gen);
+            return x;
+        }
+
+        /** Generate a random integer number of an int, min=0, max=2^64-1 */
+        uint64_t rand()
+        {
+            return _gen();
+        }
+        /** Generate a random double in the specified interval */
+        double rand_double(double min_, double max_)
+        {
+            Assert(min_ <= max_);
+            double rng_val = rand_between_0_and_1() * (max_ - min_) + min_;
+            return rng_val;
+        }
+        /** Generate a random integer in the specified interval */
+        int rand_int(int min_, int max_)
+        {
+            Assert(min_ <= max_);
+            int rng_val = (rand() % (max_ - min_)) + min_;
+            return rng_val;
+        }
+    };
+
+    /*
+    Implementation of murmur hash
+    */
+    uint32_t rotl32(uint32_t x, int8_t r)
+    {
+        return (x << r) | (x >> (32 - r));
+    }
+
+    uint32_t fmix32(uint32_t h)
+    {
+        h ^= h >> 16;
+        h *= 0x85ebca6b;
+        h ^= h >> 13;
+        h *= 0xc2b2ae35;
+        h ^= h >> 16;
+        return h;
+    }
+
+    uint32_t murmurhash3_32_multi(uint64_t seed, const int *data, size_t count)
+    {
+        const uint32_t c1 = 0xcc9e2d51;
+        const uint32_t c2 = 0x1b873593;
+
+        uint32_t h1 = static_cast<uint32_t>(seed); // Use lower 32 bits
+
+        for (size_t i = 0; i < count; ++i)
+        {
+            uint32_t k1 = static_cast<uint32_t>(data[i]);
+            k1 *= c1;
+            k1 = rotl32(k1, 15);
+            k1 *= c2;
+
+            h1 ^= k1;
+            h1 = rotl32(h1, 13);
+            h1 = h1 * 5 + 0xe6546b64;
+        }
+
+        h1 ^= static_cast<uint32_t>(count * sizeof(int)); // total length in bytes
+
+        return fmix32(h1);
+    }
 }
