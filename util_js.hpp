@@ -30,7 +30,7 @@ namespace vicmil
     public:
         static void on_data(const emscripten::val data, const std::string &func_name)
         {
-            Print("JsFuncManager::on_data");
+            // Print("JsFuncManager::on_data: " << func_name);
             if (js_funcs.count(func_name) != 0)
             {
                 js_funcs[func_name]->on_data(data);
@@ -74,6 +74,11 @@ namespace vicmil
         {
             std::string str = _payload[key].as<std::string>();
             return str;
+        }
+        int read_int(std::string key)
+        {
+            int int_data = _payload[key].as<int>();
+            return int_data;
         }
         void write_str(std::string key, std::string str)
         {
