@@ -20,7 +20,7 @@ namespace vicmil
     class SocketIOClient
     {
     private:
-        sio::client client;
+        std::shared_ptr<sio::client> client;
         using OnDataRecievedHandler = std::function<void(const sio::event &)>;
         std::unordered_map<std::string, OnDataRecievedHandler> handlers_;
 
@@ -106,39 +106,42 @@ namespace vicmil
             return _failed_connection;
         }
 
-        SocketIOClient() {}
+        SocketIOClient()
+        {
+            client = std::make_shared<sio::client>();
+        }
         // When recieving an event with the event name, invoke the function
         void add_OnDataRecieved(std::string event_name, OnDataRecieved *on_data_recieved)
         {
             handlers_[event_name] = [this, on_data_recieved](const sio::event &event) { // Capture args by value
-                Print("Recieved event!");
-                // SocketIOClient::Data data;
-                // data._data = event.get_message();
-                // on_data_recieved->on_data(data);
+                // Print("Recieved event!");
+                SocketIOClient::Data data;
+                data._data = event.get_message();
+                on_data_recieved->on_data(data);
             };
 
-            client.socket()->on(event_name, handlers_[event_name]);
+            client->socket()->on(event_name, handlers_[event_name]);
         }
         void connect(const std::string ip, int port, bool ssl = false)
         {
             std::string uri = "ws://" + ip + ":" + std::to_string(port);
-            client.connect(uri);
+            client->connect(uri);
             auto lambda = [this]() { // Capture args by value
                 this->_successfull_connection = true;
             };
-            client.set_open_listener(lambda);
+            client->set_open_listener(lambda);
         }
         void close()
         {
-            client.sync_close();
-            client.clear_con_listeners();
+            client->sync_close();
+            client->clear_con_listeners();
         }
         // Send more complicated data in a map: TODO
         void emit_data(const std::string &event_name, const SocketIOClient::Data &data)
         {
             // Note! There is a hard limit of sending 1_000_000 bytes, split it up if you need to send more
             Print("data size: " << std::to_string(data.size_in_bytes()));
-            client.socket()->emit(event_name, data._data);
+            client->socket()->emit(event_name, data._data);
         }
     };
 
