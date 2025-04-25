@@ -21,6 +21,8 @@ namespace vicmil
     {
     private:
         sio::client client;
+        using OnDataRecievedHandler = std::function<void(const sio::event &)>;
+        std::unordered_map<std::string, OnDataRecievedHandler> handlers_;
 
     public:
         bool _successfull_connection = false;
@@ -37,6 +39,11 @@ namespace vicmil
             {
                 std::string str = _data->get_map()[key]->get_string();
                 return str;
+            }
+            int read_int(std::string key)
+            {
+                int int_data = _data->get_map()[key]->get_int();
+                return int_data;
             }
             void write_str(std::string key, std::string str)
             {
@@ -103,15 +110,18 @@ namespace vicmil
         // When recieving an event with the event name, invoke the function
         void add_OnDataRecieved(std::string event_name, OnDataRecieved *on_data_recieved)
         {
-            auto lambda = [this, on_data_recieved](sio::event &event) { // Capture args by value
-                SocketIOClient::Data data;
-                data._data = event.get_message();
-                on_data_recieved->on_data(data);
+            handlers_[event_name] = [this, on_data_recieved](const sio::event &event) { // Capture args by value
+                Print("Recieved event!");
+                // SocketIOClient::Data data;
+                // data._data = event.get_message();
+                // on_data_recieved->on_data(data);
             };
-            client.socket()->on(event_name, lambda);
+
+            client.socket()->on(event_name, handlers_[event_name]);
         }
-        void connect(const std::string &uri)
+        void connect(const std::string ip, int port, bool ssl = false)
         {
+            std::string uri = "ws://" + ip + ":" + std::to_string(port);
             client.connect(uri);
             auto lambda = [this]() { // Capture args by value
                 this->_successfull_connection = true;
@@ -139,6 +149,8 @@ namespace vicmil
     private:
         bool connection_attempt = false;
         std::string socketID = "";
+        std::string _uri = "";
+        std::vector<std::shared_ptr<std::string>> save_strings = {}; // Little hacky, but strings need to be saved when you pass the pointer to javascript to avoid undefined behaviour
 
     public:
         bool _successfull_connection = false;
@@ -165,17 +177,41 @@ namespace vicmil
                 to_invoke->on_data(data);
             }
         };
+        std::map<std::string, _OnDataRecieved> _js_on_data = {};
+        void _add_OnDataRecieved(std::string event_name)
+        {
+            Print("_add_OnDataRecieved");
+            save_strings.push_back(std::make_shared<std::string>(event_name));
+            const char *event_name_ptr = save_strings.back().get()->c_str();
+            save_strings.push_back(std::make_shared<std::string>(_js_on_data[event_name].key));
+            const char *event_func_ptr = save_strings.back().get()->c_str();
+
+            // OnConnection invoked when a connection has been made
+            EM_ASM({
+                // Listen for messages from the server
+                window.socket.on(UTF8ToString($0), function(data) {
+                    // console.log('Received data from socket');
+                    // console.log('Calling:', UTF8ToString($1));
+                    Module.JsFuncManager(data, UTF8ToString($1));
+                }); }, event_name_ptr, event_func_ptr);
+        }
+
         class _OnConnection : public JsFunc
         {
         public:
             SocketIOClient *socket_io;
             void on_data(emscripten::val)
             {
-                socket_io->_successfull_connection = true;
                 Print("_OnConnection");
+                socket_io->_successfull_connection = true;
+
+                // vicmil::sleep_s(0.1); // Hacky solution, but need to wait for socket to fully establish connection
 
                 // Setup all the events for handling incomming data
-                // TODO
+                // for (auto event_listeners : socket_io->_js_on_data)
+                //{
+                //    socket_io->_add_OnDataRecieved(event_listeners.first);
+                //}
             }
         };
         bool successfull_connection()
@@ -187,7 +223,7 @@ namespace vicmil
             return _failed_connection;
         }
         _OnConnection _on_connection = _OnConnection();
-        std::map<std::string, _OnDataRecieved> _js_on_data = {};
+
         void add_OnDataRecieved(std::string event_name, OnDataRecieved *on_data_recieved)
         {
             if (!connection_attempt)
@@ -198,13 +234,15 @@ namespace vicmil
             _js_on_data[event_name].to_invoke = on_data_recieved;
             vicmil::JsFuncManager::add_js_func(&_js_on_data[event_name]); // Expose class instance to javascript
 
+            save_strings.push_back(std::make_shared<std::string>(event_name));
+
             // OnConnection invoked when a connection has been made
             EM_ASM({
             // Listen for messages from the server
             window.socket.on(UTF8ToString($0), function(data) {
                 console.log('Received data from socket');
                 Module.JsFuncManager(data, UTF8ToString($1));
-            }); }, event_name.c_str(), _js_on_data[event_name].key.c_str());
+            }); }, save_strings.back().get()->c_str(), _js_on_data[event_name].key.c_str());
         }
         void emit_data(std::string event_name, Data data)
         {
@@ -215,12 +253,21 @@ namespace vicmil
             emscripten::val socket = emscripten::val::global("socket"); // Get the JavaScript 'socket' object
             socket.call<void>("emit", emscripten::val(event_name.c_str()), data._payload);
         }
-        void connect(const std::string &uri)
+        void connect(const std::string ip, int port, bool ssl = false)
         {
             if (connection_attempt)
             {
                 ThrowError("socket connection_attempt has already been made!");
             }
+            if (ssl)
+            {
+                _uri = "wss://" + ip + ":" + std::to_string(port);
+            }
+            else
+            {
+                _uri = "ws://" + ip + ":" + std::to_string(port);
+            }
+
             _on_connection.socket_io = this;
             vicmil::JsFuncManager::add_js_func(&_on_connection); // Expose class instance to javascript
             EM_ASM({
@@ -239,6 +286,7 @@ namespace vicmil
 
             function startSocket() {
                 // Connect to the Socket.io server
+                console.log("Connecting to:", UTF8ToString($0));
                 window.socket = io(UTF8ToString($0)); // Change to your server
 
                 window.socket.on('connect', function() {
@@ -246,7 +294,7 @@ namespace vicmil
                     var data = {"connection": "success"};
                     Module.JsFuncManager(data, UTF8ToString($1));
                 });
-            } }, uri.c_str(), _on_connection.key.c_str());
+            } }, _uri.c_str(), _on_connection.key.c_str());
             connection_attempt = true; // Connection attempt made
         }
         void close()

@@ -1,11 +1,13 @@
 # app.py
 from flask import Flask, render_template
 from flask_socketio import SocketIO, emit
+from flask_cors import CORS
 import base64
 import os
 import pathlib
 
 app = Flask(__name__)
+CORS(app)
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 @app.route('/')
@@ -14,6 +16,12 @@ def index():
 
 def get_directory_path(__file__in, up_directories=0):
     return str(pathlib.Path(__file__in).parents[up_directories].resolve()).replace("\\", "/")
+
+
+@socketio.on('connect')
+def handle_connect():
+    print("Client connected")
+
 
 @socketio.on('start_download')
 def send_file_chunks(data):

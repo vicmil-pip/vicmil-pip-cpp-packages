@@ -106,7 +106,7 @@ def generate_large_text_file(filename='bigfile.txt', size_in_mb=1024):
 if __name__ == "__main__":
     env_dir = get_directory_path(__file__, 1) + "/venv"
     _python_virtual_environment(env_dir)
-    _pip_install_packages_in_virtual_environment(env_directory_path=env_dir, packages=["flask", "Flask-SocketIO"])
+    _pip_install_packages_in_virtual_environment(env_directory_path=env_dir, packages=["flask", "Flask-SocketIO", "flask-cors"])
     venv_python_path = _get_python_path(env_dir)
     go_to_url("http://127.0.0.1:5050")
     generate_large_text_file(filename=get_directory_path(__file__) + "/bigfile.txt", size_in_mb=100) # Generate a large file to upload
