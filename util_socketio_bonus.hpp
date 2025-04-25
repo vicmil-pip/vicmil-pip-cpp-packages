@@ -85,6 +85,7 @@ namespace vicmil
         {
             if (!handlers_added_to_socket)
             {
+                handlers_added_to_socket = true;
                 socket_client->add_OnDataRecieved("download_complete", &complete_handler);
                 socket_client->add_OnDataRecieved("file_chunk", &recieved_data_handler);
             }

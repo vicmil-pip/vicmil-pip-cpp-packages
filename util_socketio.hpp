@@ -27,6 +27,7 @@ namespace vicmil
     public:
         bool _successfull_connection = false;
         bool _failed_connection = false;
+        std::string _uri;
         class Data
         {
         public:
@@ -124,8 +125,15 @@ namespace vicmil
         }
         void connect(const std::string ip, int port, bool ssl = false)
         {
-            std::string uri = "ws://" + ip + ":" + std::to_string(port);
-            client->connect(uri);
+            if (ssl)
+            {
+                _uri = "wss://" + ip + ":" + std::to_string(port);
+            }
+            else
+            {
+                _uri = "ws://" + ip + ":" + std::to_string(port);
+            }
+            client->connect(_uri);
             auto lambda = [this]() { // Capture args by value
                 this->_successfull_connection = true;
             };
@@ -207,14 +215,6 @@ namespace vicmil
             {
                 Print("_OnConnection");
                 socket_io->_successfull_connection = true;
-
-                // vicmil::sleep_s(0.1); // Hacky solution, but need to wait for socket to fully establish connection
-
-                // Setup all the events for handling incomming data
-                // for (auto event_listeners : socket_io->_js_on_data)
-                //{
-                //    socket_io->_add_OnDataRecieved(event_listeners.first);
-                //}
             }
         };
         bool successfull_connection()
@@ -301,8 +301,11 @@ namespace vicmil
             connection_attempt = true; // Connection attempt made
         }
         void close()
-        { // Close the connection to the server
-          // TODO
+        {
+            EM_ASM({
+                // Close the connection to the server
+                window.socket.disconnect();
+            });
         }
     };
 
