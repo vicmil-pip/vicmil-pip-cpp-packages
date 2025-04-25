@@ -1,0 +1,50 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Download File via Socket.IO</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+</head>
+<body>
+    <input type="text" id="filename" placeholder="Enter filename to download">
+    <button onclick="startDownload()">Download</button>
+
+    <script>
+        const socket = io();
+        let receivedChunks = [];
+        let currentFilename = 'file.bin';
+
+        function startDownload() {
+            receivedChunks = [];
+            const filenameInput = document.getElementById('filename').value;
+            if (!filenameInput) return alert("Please enter a filename");
+
+            currentFilename = filenameInput;
+            socket.emit('start_download', { filename: filenameInput });
+        }
+
+        socket.on('file_chunk', (data) => {
+            const byteCharacters = atob(data.chunk);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            receivedChunks.push(byteArray);
+        });
+
+        socket.on('download_complete', (data) => {
+            const blob = new Blob(receivedChunks);
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = data.filename || currentFilename;
+            a.click();
+            alert("Download complete!");
+        });
+
+        socket.on('download_error', (data) => {
+            alert("Error: " + data.message);
+        });
+    </script>
+</body>
+</html>
