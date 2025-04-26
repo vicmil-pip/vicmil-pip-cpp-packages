@@ -1471,52 +1471,8 @@ namespace vicmil
                 layer = layer_;
             }
         };
-        struct Rect
-        {
-            int x;
-            int y;
-            int w;
-            int h;
-            Rect() {}
-            Rect(int x_, int y_, int w_, int h_)
-            {
-                x = x_;
-                y = y_;
-                w = w_;
-                h = h_;
-            }
-            bool inside_rect(int x_, int y_)
-            {
-                if (x_ > x && y_ > y && x_ < x + w && y_ < y + h)
-                {
-                    return true;
-                }
-                return false;
-            }
-            std::string to_string()
-            {
-                return "(" + std::to_string(x) + ", " + std::to_string(y) + ", " + std::to_string(w) + ", " + std::to_string(h) + ")";
-            }
-        };
-        struct RectGL
-        {
-            float x;
-            float y;
-            float w;
-            float h;
-            RectGL() {}
-            RectGL(float x_, float y_, float w_, float h_)
-            {
-                x = x_;
-                y = y_;
-                w = w_;
-                h = h_;
-            }
-            std::string to_string()
-            {
-                return "(" + std::to_string(x) + ", " + std::to_string(y) + ", " + std::to_string(w) + ", " + std::to_string(h) + ")";
-            }
-        };
+        using Rect = vicmil::RectT<int>;
+        using RectGL = vicmil::RectT<float>;
         int _screen_w = 0;
         int _screen_h = 0;
         std::map<std::string, Attachment> _attachments = std::map<std::string, Attachment>();
@@ -1606,7 +1562,7 @@ namespace vicmil
             for (const auto &pair : _attachment_pos)
             {
                 vicmil::GuiEngine::Rect rect = pair.second;
-                if (rect.inside_rect(x_, y_) && _attachments[pair.first].layer > attachment_layer)
+                if (rect.is_inside_rect(x_, y_) && _attachments[pair.first].layer > attachment_layer)
                 {
                     attachment = pair.first;
                     attachment_layer = _attachments[pair.first].layer;
