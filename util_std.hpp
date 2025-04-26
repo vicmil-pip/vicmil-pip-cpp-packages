@@ -434,6 +434,38 @@ namespace vicmil
         return codePoints;
     }
 
+    std::string unicodeCodePointsToUtf8(const std::vector<int> &codePoints)
+    {
+        std::string utf8String;
+        for (int codePoint : codePoints)
+        {
+            if (codePoint <= 0x7F)
+            {
+                utf8String += static_cast<char>(codePoint);
+            }
+            else if (codePoint <= 0x7FF)
+            {
+                utf8String += static_cast<char>(0xC0 | ((codePoint >> 6) & 0x1F));
+                utf8String += static_cast<char>(0x80 | (codePoint & 0x3F));
+            }
+            else if (codePoint <= 0xFFFF)
+            {
+                utf8String += static_cast<char>(0xE0 | ((codePoint >> 12) & 0x0F));
+                utf8String += static_cast<char>(0x80 | ((codePoint >> 6) & 0x3F));
+                utf8String += static_cast<char>(0x80 | (codePoint & 0x3F));
+            }
+            else if (codePoint <= 0x10FFFF)
+            {
+                utf8String += static_cast<char>(0xF0 | ((codePoint >> 18) & 0x07));
+                utf8String += static_cast<char>(0x80 | ((codePoint >> 12) & 0x3F));
+                utf8String += static_cast<char>(0x80 | ((codePoint >> 6) & 0x3F));
+                utf8String += static_cast<char>(0x80 | (codePoint & 0x3F));
+            }
+            // Optionally handle invalid code points here
+        }
+        return utf8String;
+    }
+
     // Function to convert raw data to a base64 string
     std::string to_base64(const std::vector<unsigned char> &data)
     {
