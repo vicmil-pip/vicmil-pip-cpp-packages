@@ -1162,6 +1162,7 @@ namespace vicmil
         int _x; // The x position in pixels
         int _y; // The y position in pixels
         Uint32 _button_state;
+        MouseState() {}
         MouseState(SDL_Window *window)
         { // May not work if update_SDL has not been called for a while
             _button_state = SDL_GetMouseState(&_x, &_y);
