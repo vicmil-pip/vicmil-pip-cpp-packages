@@ -1,4 +1,70 @@
 #pragma once
 
-#include "util_stb.hpp"
+#include "util_std_bonus.hpp"
 #include "smol-atlas/src/smol-atlas.h"
+
+namespace vicmil
+{
+    /**
+     * Pack 2d rectangels inside a larger 2d rectangle in a somewhat
+     * optimal way, so they do not overlap.
+     * Great for packing images on a larger texture for example,
+     *  especially if the images are of a similar size. But it
+     *  works for other cases too.
+     */
+    class RectPacker
+    {
+    public:
+        struct AtlasManager
+        {
+            smol_atlas_t *atlas;
+            AtlasManager(int width, int height)
+            {
+                atlas = sma_atlas_create(width, height);
+            }
+            ~AtlasManager()
+            {
+                sma_atlas_destroy(atlas);
+            }
+        };
+
+        std::unique_ptr<AtlasManager> _atlas;
+        std::map<std::string, smol_atlas_item_t *> _items;
+        RectPacker() {}
+        RectPacker(int width, int height) : _atlas(std::unique_ptr<AtlasManager>(new AtlasManager(width, height))) {}
+        bool add_rect(std::string rect_name, int rect_w, int rect_h)
+        {
+            smol_atlas_item_t *new_item = sma_item_add(_atlas.get()->atlas, rect_w, rect_h);
+            if (new_item)
+            {
+                _items[rect_name] = new_item;
+                return true;
+            }
+            return false;
+        }
+        vicmil::RectT<int> get_rect(std::string rect_name)
+        {
+            if (_items.count(rect_name) != 0)
+            {
+                smol_atlas_item_t *item = _items[rect_name];
+                int x = sma_item_x(item);
+                int y = sma_item_y(item);
+                int w = sma_item_width(item);
+                int h = sma_item_height(item);
+                return vicmil::RectT<int>(x, y, w, h);
+            }
+            return vicmil::RectT<int>(0, 0, 0, 0);
+        }
+        bool remove_rect(std::string rect_name)
+        {
+            if (_items.count(rect_name) != 0)
+            {
+                smol_atlas_item_t *item = _items[rect_name];
+                sma_item_remove(_atlas.get()->atlas, item);
+                _items.erase(rect_name);
+                return true;
+            }
+            return false;
+        }
+    };
+}
