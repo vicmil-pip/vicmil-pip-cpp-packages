@@ -1256,6 +1256,170 @@ namespace vicmil
         return false;
     }
 
+    /**
+     * SDL text input implementation for native platforms
+     * When running in the web, you cannot rely on just sdl events
+     * (sdl in the web cannot handle more advanced input, such as japanese)
+     * When running in the web, you need to create an invisible input element(TODO)
+     */
+    class SdlTextInput
+    {
+    public:
+        std::vector<int> text_unicode;
+        std::vector<int> composing_text_unicode; // In some languages(such as japanese), you write the text, and then when you press enter you input the actual text
+        int cursor_pos = 0;
+        bool input_text_activated = false;
+        void start_input_text()
+        {
+            if (!input_text_activated)
+            {
+                SDL_StartTextInput();
+                input_text_activated = true;
+            }
+        }
+        void stop_input_text()
+        {
+            if (input_text_activated)
+            {
+                SDL_StopTextInput();
+                input_text_activated = false;
+            }
+        }
+        static void set_cursor_render_pos(vicmil::RectT<int> cursor_rect)
+        {
+            // In some languages(such as japanese), there will be a text box where the user can pick which character to input
+            // Make sure to update this with the cursor pos for it to show up in the correct location!
+            // The cursor_rect is the position and size of the cursor where it is rendered on the screen
+            //  (in window coordinates, not relative the whole screen)
+            SDL_Rect ime_rect = {cursor_rect.x, cursor_rect.y, cursor_rect.w, cursor_rect.h};
+            SDL_SetTextInputRect(&ime_rect);
+        }
+        std::string get_text_utf8()
+        {
+            return vicmil::unicodeCodePointsToUtf8(text_unicode);
+        }
+        std::string get_compose_text_utf8()
+        {
+            return vicmil::unicodeCodePointsToUtf8(composing_text_unicode);
+        }
+        std::string get_text_utf8_with_cursor()
+        {
+            // Add a cursor as | where the cursor is
+            std::vector<int> text_unicode_copy = text_unicode;
+            text_unicode_copy.insert(text_unicode_copy.begin() + cursor_pos, '|');
+            return vicmil::unicodeCodePointsToUtf8(text_unicode_copy);
+        }
+        void get_cursor_row_col(int *row, int *col)
+        {
+            int cur_row = 0, cur_col = 0;
+            for (int i = 0; i < cursor_pos; ++i)
+            {
+                if (text_unicode[i] == '\n')
+                {
+                    cur_row++;
+                    cur_col = 0;
+                }
+                else
+                {
+                    cur_col++;
+                }
+            }
+            *row = cur_row;
+            *col = cur_col;
+        }
+        bool update_text_input(std::vector<SDL_Event> &events)
+        {
+            /*
+            Update text based on event
+            Returns true if the text was updated
+            */
+            bool text_updated = false;
+
+            for (SDL_Event event : events)
+            {
+                if (event.type == SDL_TEXTINPUT)
+                {
+                    std::vector<int> new_text = vicmil::utf8ToUnicodeCodePoints(event.text.text);
+                    text_unicode.insert(text_unicode.end(), new_text.begin(), new_text.end());
+                    cursor_pos += new_text.size();
+                    composing_text_unicode.clear();
+                    text_updated = true;
+                }
+                else if (event.type == SDL_TEXTEDITING)
+                {
+                    composing_text_unicode = vicmil::utf8ToUnicodeCodePoints(event.edit.text);
+                    text_updated = true;
+                }
+                else if (event.type == SDL_KEYDOWN)
+                {
+                    if (event.key.keysym.sym == SDLK_BACKSPACE)
+                    {
+                        if (cursor_pos != 0)
+                        {
+                            text_unicode.erase(text_unicode.begin() + cursor_pos - 1); // Remove last character from final text
+                            cursor_pos -= 1;
+                            text_updated = true;
+                        }
+                    }
+                    else if (event.key.keysym.sym == SDLK_RETURN)
+                    {
+                        text_unicode.insert(text_unicode.begin() + cursor_pos, '\n');
+                        cursor_pos += 1;
+                        text_updated = true;
+                    }
+                    else if (event.key.keysym.sym == SDLK_RIGHT)
+                    {
+                        cursor_pos += 1;
+                        if (cursor_pos > text_unicode.size())
+                        {
+                            cursor_pos = text_unicode.size();
+                        }
+                        text_updated = true;
+                    }
+                    else if (event.key.keysym.sym == SDLK_LEFT)
+                    {
+                        cursor_pos -= 1;
+                        if (cursor_pos < 0)
+                        {
+                            cursor_pos = 0;
+                        }
+                        text_updated = true;
+                    }
+                }
+                else if (event.key.keysym.sym == SDLK_UP || event.key.keysym.sym == SDLK_DOWN)
+                {
+                    // Compute current row and column
+                    int cur_row, cur_col;
+                    get_cursor_row_col(&cur_row, &cur_col);
+
+                    // Build line start indices
+                    std::vector<int> line_starts = {0};
+                    for (int i = 0; i < text_unicode.size(); ++i)
+                    {
+                        if (text_unicode[i] == '\n')
+                            line_starts.push_back(i + 1);
+                    }
+                    line_starts.push_back(text_unicode.size()); // Sentinel for last line end
+
+                    int new_row = (event.key.keysym.sym == SDLK_UP) ? cur_row - 1 : cur_row + 1;
+                    if (new_row >= 0 && new_row + 1 < line_starts.size())
+                    {
+                        int start = line_starts[new_row];
+                        int end = line_starts[new_row + 1];
+                        int offset = std::min(cur_col, end - start);
+                        cursor_pos = start + offset;
+                        text_updated = true;
+                    }
+                }
+            }
+            return text_updated;
+        }
+        ~SdlTextInput()
+        {
+            stop_input_text();
+        }
+    };
+
     // ============================================================
     //                    Gui and layout
     // ============================================================
