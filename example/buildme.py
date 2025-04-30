@@ -8,14 +8,14 @@ sys.path.append(str(Path(__file__).resolve().parents[4]))
 
 from vicmil_pip.packages.cppBuild import *
 
-cpp_files = [path_traverse_up(__file__, 0) + "/main.cpp"]
+cpp_files = [get_directory_path(__file__, 0) + "/main.cpp"]
 
 build_setup = BuildSetup(browser=False)
 build_setup.add_default_parameters(
     cpp_file_paths=cpp_files, 
-    output_dir=path_traverse_up(__file__, 0) + "/bin",
+    output_dir=get_directory_path(__file__, 0) + "/bin",
 )
-build_setup.add_installed_vicmil_pip_packages()
+build_setup.add_vicmil_pip_package("cppGlm")
 
 build_setup.build_and_run()
 
