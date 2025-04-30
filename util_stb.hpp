@@ -1,4 +1,6 @@
-
+/*
+[vmdoc:description] Includes stb, a library used for loading images(such as .png) and fonts [vmdoc:enddescription]
+*/
 // ============================================================
 //                           Include
 // ============================================================
