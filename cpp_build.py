@@ -8,9 +8,9 @@ sys.path.append(str(Path(__file__).resolve().parents[2]))
 sys.path.append(str(Path(__file__).resolve().parents[3])) 
 sys.path.append(str(Path(__file__).resolve().parents[4])) 
 
-from vicmil_pip.packages.cppBuild import BuildSetup, path_traverse_up
+from vicmil_pip.packages.cppBuild import BuildSetup, get_directory_path
 
 def get_build_setup(browser: bool):
     new_build_setup = BuildSetup(browser=browser)
-    new_build_setup.n6_include_paths.append(f'-I "{path_traverse_up(__file__, 0)}"')
+    new_build_setup.n6_include_paths.append(get_directory_path(__file__, 0))
     return new_build_setup
