@@ -1,6 +1,5 @@
 /*
 [vmdoc:description]
-
 Contains documentation for how to do some things using the standard library: Everything should be supported in C++11 and newer versions across most major platforms(Windows, Linux, Browser using emscripten)
 [vmdoc:enddescription]
 */
@@ -1218,6 +1217,31 @@ namespace vicmil
             {
                 return false;
             }
+            return true;
+        }
+        bool is_inside_rect(const RectT<T> other) const
+        {
+            // Determine if other rectangle is inside the current rectangle
+            if (other.x < x || other.y < y || other.max_x() > max_x() || other.max_y() > max_y())
+            {
+                return false;
+            }
+            return true;
+        }
+        bool is_overlapping(const RectT<T> other)
+        {
+            // If one rectangle is on left side of the other
+            if (x + w <= other.x || other.x + other.w <= x)
+            {
+                return false;
+            }
+
+            // If one rectangle is above the other
+            if (y + h <= other.y || other.y + other.h <= y)
+            {
+                return false;
+            }
+
             return true;
         }
         std::string to_string() const
