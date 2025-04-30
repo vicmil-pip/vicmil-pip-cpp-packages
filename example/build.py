@@ -18,4 +18,4 @@ setup.run_command(f'"{cpp_compiler}" "{cpp_source}" -o "{executable_file}"')
 
 if os.path.exists(executable_file):
     # Run executable that was built
-    setup.launch_html_page(f'{executable_file}')
+    setup.serve_html_page(f'{executable_file}')
