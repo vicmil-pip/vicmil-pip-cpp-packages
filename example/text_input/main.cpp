@@ -19,7 +19,7 @@ void init()
 {
     vicmil::init_SDL();
     window = vicmil::Window(512, 512, "Hello rectangle minimal");
-    text_input.start_input_text();
+    text_input.set_input_text_activated(true);
 
     // (Where the cursor is rendered)
     text_input.set_cursor_render_pos(vicmil::RectT<int>(100, 100, 1, 10));
