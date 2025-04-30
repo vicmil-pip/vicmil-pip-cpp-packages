@@ -1,0 +1,36 @@
+site_name: My Docs
+
+theme:
+  name: material
+
+  features:
+    - content.code.copy
+
+  palette:
+  # Palette toggle for light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/toggle-switch-off-outline
+        name: Switch to dark mode
+
+    # Palette toggle for dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/toggle-switch
+        name: Switch to light mode
+
+nav:
+  - files:
+    - /util_vicmil_gui.hpp: vmdoc/util_vicmil_gui.hpp_568773.txt
+    - /util_vicmil_gui_bonus.hpp: vmdoc/util_vicmil_gui_bonus.hpp_3a8534.txt
+  - Home: index.md
+  - vmdoc: vmdoc/vmdocs.md
+markdown_extensions:
+  - codehilite:
+      guess_lang: false  # Ensures correct language highlighting
+  - fenced_code
+  - pymdownx.superfences
+  - pymdownx.tabbed
+  - attr_list
