@@ -8,15 +8,18 @@ sys.path.append(str(Path(__file__).resolve().parents[4]))
 sys.path.append(str(Path(__file__).resolve().parents[5])) 
 
 from vicmil_pip.packages.cppBuild import *
+from vicmil_pip.packages.assetFonts import *
 
 cpp_files = [get_directory_path(__file__, 0) + "/main.cpp"]
 
-build_setup = BuildSetup(browser=False)
+build_setup = BuildSetup(browser=True)
 build_setup.add_default_parameters(
     cpp_file_paths=cpp_files, 
     output_dir=get_directory_path(__file__, 0) + "/bin",
 )
 build_setup.add_vicmil_pip_package("cppVicmilGui")
+
+include_font(build_setup, "Noto Sans Mono CJK JP Regular.otf")
 
 build_setup.build_and_run()
 

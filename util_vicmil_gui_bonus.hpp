@@ -1,0 +1,405 @@
+#pragma once
+#include "util_vicmil_gui.hpp"
+
+namespace vicmil
+{
+    class ButtonWidget : public Widget
+    {
+    public:
+        int _w = 100;
+        int _h = 100;
+        std::string _attach_to = "screen";
+        vicmil::GuiEngine::attach_location _attach_location = vicmil::GuiEngine::attach_location::o_TopLeft_e_TopLeft;
+        int _layer = 1;
+        bool _updated = true;
+        std::shared_ptr<WidgetData> data;
+        std::string widget_name = "undefined";
+        std::string get_name() override { return widget_name; }
+        ColorRGBA_UChar color = ColorRGBA_UChar(255, 0, 0, 255);
+
+        ButtonWidget() {}
+        ButtonWidget(std::shared_ptr<WidgetData> data_)
+        {
+            data = data_;
+            widget_name = "button_widget" + get_unique_id();
+        }
+        virtual void pressed()
+        {
+            Print("Button was pressed");
+        }
+
+        void attach_to(std::string attach_to_, vicmil::GuiEngine::attach_location attach_location_)
+        {
+            _attach_to = attach_to_;
+            _attach_location = attach_location_;
+            _updated = true;
+        }
+
+        void set_size(int w, int h)
+        {
+            _w = w;
+            _h = h;
+            _updated = true;
+        }
+
+        void set_layer(int layer)
+        {
+            _layer = layer;
+            _updated = true;
+        }
+
+        void _attach_update()
+        {
+            if (_updated)
+            {
+                data.get()->gui_engine.get()->element_attach(widget_name, _w, _h, _attach_to, _attach_location, _layer);
+                _updated = false;
+            }
+        }
+
+        void update() override
+        {
+            // See if the user has pressed left click, and have mouse over button
+            if (data.get()->gui_element_at_mouse == widget_name && data.get()->mouse_left_clicked)
+            {
+                pressed();
+            }
+
+            // Update attach location if element if updated
+            _attach_update();
+
+            draw();
+        }
+        virtual void draw()
+        {
+            // Add the graphics
+            vicmil::add_color_rect_to_triangle_buffer(
+                data.get()->color_triangles,                                   // Triangle buffer
+                data.get()->gui_engine.get()->get_element_gl_pos(widget_name), // Position on screen
+                _layer,                                                        // Layer on screen
+                color.r, color.g, color.b, color.a);                           // Color
+        }
+    };
+    class SwitchWidget : public ButtonWidget
+    {
+    public:
+        bool _enabled = false;
+        SwitchWidget() {}
+        SwitchWidget(std::shared_ptr<WidgetData> data_)
+        {
+            data = data_;
+            widget_name = "switch_widget" + get_unique_id();
+        }
+        void set_enabled(int enabled_)
+        {
+            _enabled = enabled_;
+            if (_enabled)
+            {
+                color = ColorRGBA_UChar(0, 255, 0, 255);
+            }
+            else
+            {
+                color = ColorRGBA_UChar(255, 0, 0, 255);
+            }
+        }
+        void pressed() override
+        {
+            set_enabled(!_enabled);
+        }
+    };
+    class TextBoxWidget : public ButtonWidget
+    {
+    public:
+        bool writeable = true;
+        bool selected = false;
+        vicmil::SdlTextInput text_input = vicmil::SdlTextInput();
+        vicmil::TextManager text_draw_manager;
+
+        TextBoxWidget() {}
+        TextBoxWidget(std::shared_ptr<WidgetData> data_)
+        {
+            data = data_;
+            widget_name = "text_box_widget" + get_unique_id();
+            text_draw_manager = vicmil::TextManager(data_.get()->font_image_manager);
+        }
+        void update() override
+        {
+            // Update if the text element is selected
+            if (data.get()->mouse_left_clicked || data.get()->mouse_right_clicked)
+            {
+                if (data.get()->gui_element_at_mouse == widget_name)
+                {
+                    selected = true;
+                }
+                else
+                {
+                    selected = false;
+                    text_input.set_input_text_activated(false);
+                }
+            }
+
+            if (selected)
+            {
+                // Start text input if it is not already started
+                text_input.set_input_text_activated(true);
+
+                // Handle the user typing text
+                if (text_input.update_text_input(data.get()->events))
+                {
+                    PrintExpr(text_input.text_unicode.size());
+                    PrintExpr(text_input.get_text_utf8_with_cursor());
+                }
+            }
+
+            _attach_update();
+
+            // Add the text box graphics
+            if (selected)
+            {
+                vicmil::add_color_rect_to_triangle_buffer(
+                    data.get()->color_triangles,                                   // Triangle buffer
+                    data.get()->gui_engine.get()->get_element_gl_pos(widget_name), // Position on screen
+                    _layer,                                                        // Layer on screen
+                    60, 60, 90, 255);                                              // Color
+
+                // Draw cursor
+                int cursor_index = text_input.cursor_pos;
+                vicmil::GuiEngine::Rect cursor_pos = text_draw_manager.get_cursor_pos_pixel(cursor_index);
+                vicmil::add_color_rect_to_triangle_buffer(
+                    data.get()->color_triangles,                               // Triangle buffer
+                    data.get()->gui_engine.get()->rect_to_rect_gl(cursor_pos), // Position on screen
+                    _layer + 1,                                                // Layer on screen
+                    200, 200, 200, 255);                                       // Color
+            }
+            else
+            {
+                vicmil::add_color_rect_to_triangle_buffer(
+                    data.get()->color_triangles,                                   // Triangle buffer
+                    data.get()->gui_engine.get()->get_element_gl_pos(widget_name), // Position on screen
+                    _layer,                                                        // Layer on screen
+                    60, 60, 60, 255);                                              // Color
+            }
+
+            text_draw_manager.set_boundry(data.get()->gui_engine.get()->get_element_pos(widget_name));
+
+            // Get the position of all the letters and draw them on the screen:
+            text_draw_manager.update_text_positions(text_input.text_unicode);
+            int screen_w = data.get()->gui_engine.get()->_screen_w;
+            int screen_h = data.get()->gui_engine.get()->_screen_h;
+            std::vector<vicmil::CoordTexCoord_XYZUV_f> text_verticies = text_draw_manager.get_draw_vec(screen_w, screen_h, _layer + 2);
+            data.get()->texture_triangles.insert(data.get()->texture_triangles.begin(), text_verticies.begin(), text_verticies.end());
+        }
+    };
+
+    class DropDownWidget : public ButtonWidget
+    {
+    public:
+        vicmil::TextManager text_draw_manager;
+        bool selected = false;
+
+        vicmil::Tree dropdown_tree;
+        std::vector<std::string> _selected_path = {};
+        std::vector<std::string> _active_gui_elements = {};
+        std::string _last_selected_gui_element = "";
+        bool new_element_selected = false;
+        int element_width = 50;
+        int element_height = 20;
+        std::string button_name = "dropdown";
+
+        DropDownWidget() {}
+        DropDownWidget(std::shared_ptr<WidgetData> data_)
+        {
+            data = data_;
+            widget_name = "dropdown_widget" + get_unique_id();
+            text_draw_manager = vicmil::TextManager(data_.get()->font_image_manager);
+        }
+
+        void add_tree_path(std::vector<std::string> tree_path)
+        {
+            dropdown_tree.add_tree_path(tree_path);
+        }
+
+        std::vector<std::string> get_selected_tree_path()
+        {
+            return _selected_path;
+        }
+
+        virtual void dropdown_clicked(std::vector<std::string> tree_path)
+        {
+            Print("DropDownWidget clicked: " << vicmil::vec_to_str(tree_path));
+        }
+
+        std::string path_gui_name(std::vector<std::string> tree_path)
+        {
+            std::string return_str = widget_name;
+            for (int i = 0; i < tree_path.size(); i++)
+            {
+                return_str += "_" + tree_path[i];
+            }
+            return return_str;
+        }
+
+        virtual void draw_element(const std::vector<std::string> &tree_path)
+        {
+            std::string element_name = path_gui_name(tree_path);
+            vicmil::GuiEngine::Rect element_pos = data.get()->gui_engine.get()->get_element_pos(element_name);
+
+            if (element_pos.w == 0)
+            {
+                return;
+            }
+            if (element_name == data->gui_element_at_mouse)
+            {
+                vicmil::add_color_rect_to_triangle_buffer(
+                    data->color_triangles,                          // Triangle buffer
+                    data->gui_engine->rect_to_rect_gl(element_pos), // Position on screen
+                    _layer + 1,                                     // Layer on screen
+                    0, 200, 0, 255);                                // Green Color
+            }
+            else
+            {
+                vicmil::add_color_rect_to_triangle_buffer(
+                    data->color_triangles,                          // Triangle buffer
+                    data->gui_engine->rect_to_rect_gl(element_pos), // Position on screen
+                    _layer + 1,                                     // Layer on screen
+                    200, 0, 0, 255);                                // Red Color
+            }
+
+            // Draw text on the element
+            if (tree_path.size() > 0)
+            {
+                text_draw_manager.update_text_positions(tree_path.back());
+            }
+            else
+            {
+                text_draw_manager.update_text_positions(button_name);
+            }
+            text_draw_manager.set_boundry(element_pos);
+            std::vector<vicmil::CoordTexCoord_XYZUV_f> text_draw_vec = text_draw_manager.get_draw_vec(data->gui_engine->_screen_w, data->gui_engine->_screen_h, _layer + 2);
+            data->texture_triangles.insert(data->texture_triangles.begin(), text_draw_vec.begin(), text_draw_vec.end());
+        }
+
+        void _remove_gui_elements()
+        {
+            for (auto gui_element : _active_gui_elements)
+            {
+                data->gui_engine->element_remove(gui_element);
+            }
+        }
+
+        void _attach_children(std::vector<std::string> tree_path, vicmil::GuiEngine::attach_location attach_location)
+        {
+            std::vector<std::string> children = dropdown_tree.get_tree_path_children(tree_path);
+            if (children.size() > 0)
+            {
+                std::vector<std::string> child_path = tree_path;
+                child_path.push_back(children[0]);
+                data->gui_engine->element_attach(path_gui_name(child_path), element_width, element_height, path_gui_name(tree_path), attach_location, _layer);
+                _active_gui_elements.push_back(path_gui_name(child_path));
+
+                std::string prev_child_name = path_gui_name(child_path);
+                for (int i = 1; i < children.size(); i++)
+                {
+                    child_path[child_path.size() - 1] = children[i];
+                    data->gui_engine->element_attach(path_gui_name(child_path), element_width, element_height, prev_child_name, vicmil::GuiEngine::attach_location::o_BottomLeft_e_TopLeft, _layer);
+                    _active_gui_elements.push_back(path_gui_name(child_path));
+                    prev_child_name = path_gui_name(child_path);
+                }
+            }
+        }
+
+        void _add_gui_elements()
+        {
+            _active_gui_elements = {};
+            if (selected)
+            {
+                std::vector<std::string> tree_path = _selected_path;
+                _attach_children({}, vicmil::GuiEngine::attach_location::o_BottomLeft_e_TopLeft);
+
+                int count = tree_path.size();
+                for (int i = 0; i < count; i++)
+                {
+                    _attach_children(tree_path, vicmil::GuiEngine::attach_location::o_TopRight_e_TopLeft);
+                    tree_path.pop_back();
+                }
+            }
+        }
+
+        void _update_selected()
+        {
+            new_element_selected = false;
+
+            if (selected)
+            {
+                if ((data.get()->mouse_left_clicked || data.get()->mouse_right_clicked) && data.get()->gui_element_at_mouse == widget_name)
+                {
+                    selected = false;
+                    new_element_selected = true;
+                    return;
+                }
+
+                if (_last_selected_gui_element == data.get()->gui_element_at_mouse)
+                {
+                    return;
+                }
+
+                std::vector<std::vector<std::string>> all_tree_paths = dropdown_tree.get_all_tree_paths();
+                for (auto tree_path : all_tree_paths)
+                {
+                    if (data.get()->gui_element_at_mouse == path_gui_name(tree_path))
+                    {
+                        _selected_path = tree_path;
+                        _last_selected_gui_element = path_gui_name(tree_path);
+                        new_element_selected = true;
+                        return;
+                    }
+                }
+
+                // Mouse is not at any of the dropdown elements, thus it is no longer selected
+                selected = false;
+                _selected_path = {};
+                new_element_selected = true;
+                return;
+            }
+            else if (data.get()->mouse_left_clicked || data.get()->mouse_right_clicked)
+            {
+                if (data.get()->gui_element_at_mouse == widget_name)
+                {
+                    // User clicked on the top element, thus it is now selected
+                    selected = true;
+                    new_element_selected = true;
+                    return;
+                }
+            }
+        }
+
+        virtual void draw()
+        {
+            std::vector<std::vector<std::string>> all_tree_paths = dropdown_tree.get_all_tree_paths();
+            for (auto tree_path : all_tree_paths)
+            {
+                if (data->gui_engine->contains_element(path_gui_name(tree_path)))
+                {
+                    draw_element(tree_path);
+                }
+            }
+        }
+
+        void update() override
+        {
+            _update_selected();
+            _attach_update();
+
+            if (new_element_selected)
+            {
+                _remove_gui_elements();
+                _add_gui_elements();
+            }
+            if (selected && (data.get()->mouse_left_clicked || data.get()->mouse_right_clicked))
+            {
+                dropdown_clicked(_selected_path);
+            }
+            draw();
+        }
+    };
+}
