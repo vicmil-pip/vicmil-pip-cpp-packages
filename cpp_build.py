@@ -8,14 +8,16 @@ sys.path.append(str(Path(__file__).resolve().parents[2]))
 sys.path.append(str(Path(__file__).resolve().parents[3])) 
 sys.path.append(str(Path(__file__).resolve().parents[4])) 
 
-from vicmil_pip.packages.cppBuild import BuildSetup, path_traverse_up
+from vicmil_pip.packages.cppBuild import BuildSetup, get_directory_path
 
 def get_build_setup(browser: bool):
     new_build_setup = BuildSetup(browser=browser)
-    new_build_setup.n6_include_paths.append(f'-I "{path_traverse_up(__file__, 0)}"')
+    new_build_setup.add_vicmil_pip_package("cppBasics")
+
+    new_build_setup.n6_include_paths.append(get_directory_path(__file__, 0))
 
     # Include smol-atlas
-    new_build_setup.n2_cpp_files.append(path_traverse_up(__file__, 0) + "/smol-atlas/src/smol-atlas.cpp")
-    new_build_setup.n6_include_paths.append(f'-I "{path_traverse_up(__file__, 0) + "/smol-atlas/src/"}"')
+    new_build_setup.n2_cpp_files.append(get_directory_path(__file__, 0) + "/smol-atlas/src/smol-atlas.cpp")
+    new_build_setup.n6_include_paths.append(get_directory_path(__file__, 0) + "/smol-atlas/src/")
     
     return new_build_setup
