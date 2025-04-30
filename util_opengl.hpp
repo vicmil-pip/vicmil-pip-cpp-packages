@@ -238,7 +238,7 @@ namespace vicmil
          */
         void delete_program()
         {
-            glDeleteProgram(id);
+            GLCall(glDeleteProgram(id));
         }
         ~GPUProgram() {}
     };
@@ -524,30 +524,30 @@ namespace vicmil
     public:
         GLBuffer vertex_buffer;
         int buffer_vertex_count = 0;
-        static VertexBuffer from_raw_data(void *vertex_data, unsigned int vertex_data_byte_size, int triangle_count_)
+        static VertexBuffer from_raw_data(void *vertex_data, unsigned int vertex_data_byte_size, int buffer_vertex_count_)
         {
             VertexBuffer new_buffer;
             new_buffer.vertex_buffer = GLBuffer::generate_buffer(vertex_data_byte_size, vertex_data, GL_ARRAY_BUFFER);
-            new_buffer.buffer_vertex_count = triangle_count_ * 3;
+            new_buffer.buffer_vertex_count = buffer_vertex_count_;
             return new_buffer;
         }
-        template <class TRIANGLE>
-        static VertexBuffer from_triangle_vector(std::vector<TRIANGLE> &vec)
+        template <class VERTEX>
+        static VertexBuffer from_vertex_vector(std::vector<VERTEX> &vec)
         {
-            return from_raw_data(&vec[0], vec.size() * sizeof(TRIANGLE), vec.size());
+            return from_raw_data(&vec[0], vec.size() * sizeof(VERTEX), vec.size());
         }
         /**
          * Overwrite all the data in the vertex buffer
          */
-        void overwrite_data(void *vertex_data, unsigned int vertex_data_byte_size, int triangle_count_)
+        void overwrite_data(void *vertex_data, unsigned int vertex_data_byte_size, int buffer_vertex_count_)
         {
-            buffer_vertex_count = triangle_count_ * 3;
+            buffer_vertex_count = buffer_vertex_count_;
             vertex_buffer.overwrite_buffer_data(vertex_data_byte_size, vertex_data);
         }
-        template <class TRIANGLE>
-        void overwrite_triangle_vector(std::vector<TRIANGLE> &vec)
+        template <class VERTEX>
+        void overwrite_vertex_vector(std::vector<VERTEX> &vec)
         {
-            return overwrite_data(&vec[0], vec.size() * sizeof(TRIANGLE), vec.size());
+            return overwrite_data(&vec[0], vec.size() * sizeof(VERTEX), vec.size());
         }
         /**
          * Bind the vertex buffer on the GPU. This means that it
@@ -1266,22 +1266,24 @@ namespace vicmil
     class SdlTextInput
     {
     public:
-        std::vector<int> text_unicode;
-        std::vector<int> composing_text_unicode; // In some languages(such as japanese), you write the text, and then when you press enter you input the actual text
+        std::vector<int> text_unicode = {};
+        std::vector<int> composing_text_unicode = {}; // In some languages(such as japanese), you write the text, and then when you press enter you input the actual text
         int cursor_pos = 0;
-        bool input_text_activated = false;
-        void start_input_text()
+
+        static void set_input_text_activated(bool activated)
         {
-            if (!input_text_activated)
+            bool input_text_activated = SDL_IsTextInputActive();
+
+            if (activated && !input_text_activated)
             {
+                Print("Start text input");
                 SDL_StartTextInput();
                 input_text_activated = true;
             }
-        }
-        void stop_input_text()
-        {
-            if (input_text_activated)
+
+            if (!activated && input_text_activated)
             {
+                Print("Stop text input");
                 SDL_StopTextInput();
                 input_text_activated = false;
             }
@@ -1340,7 +1342,9 @@ namespace vicmil
             {
                 if (event.type == SDL_TEXTINPUT)
                 {
+                    PrintExpr(event.text.text);
                     std::vector<int> new_text = vicmil::utf8ToUnicodeCodePoints(event.text.text);
+                    PrintExpr(new_text.size());
                     text_unicode.insert(text_unicode.end(), new_text.begin(), new_text.end());
                     cursor_pos += new_text.size();
                     composing_text_unicode.clear();
@@ -1414,10 +1418,6 @@ namespace vicmil
                 }
             }
             return text_updated;
-        }
-        ~SdlTextInput()
-        {
-            stop_input_text();
         }
     };
 
@@ -1494,7 +1494,7 @@ namespace vicmil
         }
         bool contains_element(std::string name)
         {
-            return _attachments.count(name) == 0;
+            return _attachments.count(name) != 0;
         }
         void clear()
         { // Remove all elements
@@ -1580,14 +1580,19 @@ namespace vicmil
             return _attachment_pos[name];
         }
         // pos in [-1, 1]
-        RectGL rect_to_rect_gl(Rect rect)
+        static inline RectGL rect_to_rect_gl(Rect rect, int screen_w, int screen_h)
         {
             RectGL gl_pos;
-            gl_pos.x = (float(rect.x) / _screen_w) * 2.0f - 1.0f;
-            gl_pos.y = -((float(rect.y) / _screen_h) * 2.0f - 1.0f); // The y = -1 is at the bottom of the screen
-            gl_pos.w = 2.0f * (float(rect.w) / _screen_w);
-            gl_pos.h = 2.0f * (float(rect.h) / _screen_h);
+            gl_pos.x = (float(rect.x) / screen_w) * 2.0f - 1.0f;
+            gl_pos.y = -((float(rect.y) / screen_h) * 2.0f - 1.0f); // The y = -1 is at the bottom of the screen
+            gl_pos.w = 2.0f * (float(rect.w) / screen_w);
+            gl_pos.h = 2.0f * (float(rect.h) / screen_h);
             return gl_pos;
+        }
+        // pos in [-1, 1]
+        inline RectGL rect_to_rect_gl(Rect rect)
+        {
+            return rect_to_rect_gl(rect, _screen_w, _screen_h);
         }
         // pos in [-1, 1]
         RectGL get_element_gl_pos(std::string name)
@@ -1657,6 +1662,11 @@ namespace vicmil
     //                    Default gpu programs (i.e. shaders)
     // ============================================================
 
+    inline float layer_to_depth(unsigned int layer)
+    {
+        return 1.0f - (layer + 1) / 200000.0f;
+    }
+
     // Add a 2d rectangle with a single color to the things to draw
     inline void add_color_rect_to_triangle_buffer(
         std::vector<vicmil::CoordColor_XYZRGBA_f> &vertices,
@@ -1667,12 +1677,12 @@ namespace vicmil
         unsigned char b,
         unsigned char a = 255)
     {
-        vertices.push_back(vicmil::CoordColor_XYZRGBA_f(layout_pos.x, layout_pos.y, 1.0f - (layer + 1) / 2000000.0f, r / 255.0, g / 255.0, b / 255.0, a / 255.0));
-        vertices.push_back(vicmil::CoordColor_XYZRGBA_f(layout_pos.x + layout_pos.w, layout_pos.y, 1.0f - (layer + 1) / 2000000.0f, r / 255.0, g / 255.0, b / 255.0, a / 255.0));
-        vertices.push_back(vicmil::CoordColor_XYZRGBA_f(layout_pos.x, layout_pos.y - layout_pos.h, 1.0f - (layer + 1) / 2000000.0f, r / 255.0, g / 255.0, b / 255.0, a / 255.0));
-        vertices.push_back(vicmil::CoordColor_XYZRGBA_f(layout_pos.x + layout_pos.w, layout_pos.y - layout_pos.h, 1.0f - (layer + 1) / 2000000.0f, r / 255.0, g / 255.0, b / 255.0, a / 255.0));
-        vertices.push_back(vicmil::CoordColor_XYZRGBA_f(layout_pos.x + layout_pos.w, layout_pos.y, 1.0f - (layer + 1) / 2000000.0f, r / 255.0, g / 255.0, b / 255.0, a / 255.0));
-        vertices.push_back(vicmil::CoordColor_XYZRGBA_f(layout_pos.x, layout_pos.y - layout_pos.h, 1.0f - (layer + 1) / 2000000.0f, r / 255.0, g / 255.0, b / 255.0, a / 255.0));
+        vertices.push_back(vicmil::CoordColor_XYZRGBA_f(layout_pos.x, layout_pos.y, layer_to_depth(layer), r / 255.0, g / 255.0, b / 255.0, a / 255.0));
+        vertices.push_back(vicmil::CoordColor_XYZRGBA_f(layout_pos.x + layout_pos.w, layout_pos.y, layer_to_depth(layer), r / 255.0, g / 255.0, b / 255.0, a / 255.0));
+        vertices.push_back(vicmil::CoordColor_XYZRGBA_f(layout_pos.x, layout_pos.y - layout_pos.h, layer_to_depth(layer), r / 255.0, g / 255.0, b / 255.0, a / 255.0));
+        vertices.push_back(vicmil::CoordColor_XYZRGBA_f(layout_pos.x + layout_pos.w, layout_pos.y - layout_pos.h, layer_to_depth(layer), r / 255.0, g / 255.0, b / 255.0, a / 255.0));
+        vertices.push_back(vicmil::CoordColor_XYZRGBA_f(layout_pos.x + layout_pos.w, layout_pos.y, layer_to_depth(layer), r / 255.0, g / 255.0, b / 255.0, a / 255.0));
+        vertices.push_back(vicmil::CoordColor_XYZRGBA_f(layout_pos.x, layout_pos.y - layout_pos.h, layer_to_depth(layer), r / 255.0, g / 255.0, b / 255.0, a / 255.0));
     }
 
     // Add a 2d rectangle with an image on it to the things to draw
@@ -1683,28 +1693,28 @@ namespace vicmil
         vicmil::GuiEngine::RectGL texture_pos = vicmil::GuiEngine::RectGL(0, 0, 1, 1))
     {
         vertices.push_back(vicmil::CoordTexCoord_XYZUV_f(layout_pos.x,
-                                                         layout_pos.y, 1.0f - (layer + 1) / 2000000.0f,
+                                                         layout_pos.y, layer_to_depth(layer),
                                                          texture_pos.x,
                                                          texture_pos.y));
         vertices.push_back(vicmil::CoordTexCoord_XYZUV_f(layout_pos.x + layout_pos.w,
-                                                         layout_pos.y, 1.0f - (layer + 1) / 2000000.0f,
+                                                         layout_pos.y, layer_to_depth(layer),
                                                          texture_pos.x + texture_pos.w,
                                                          texture_pos.y));
         vertices.push_back(vicmil::CoordTexCoord_XYZUV_f(layout_pos.x,
-                                                         layout_pos.y - layout_pos.h, 1.0f - (layer + 1) / 2000000.0f,
+                                                         layout_pos.y - layout_pos.h, layer_to_depth(layer),
                                                          texture_pos.x,
                                                          texture_pos.y + texture_pos.h));
 
         vertices.push_back(vicmil::CoordTexCoord_XYZUV_f(layout_pos.x + layout_pos.w,
-                                                         layout_pos.y - layout_pos.h, 1.0f - (layer + 1) / 2000000.0f,
+                                                         layout_pos.y - layout_pos.h, layer_to_depth(layer),
                                                          texture_pos.x + texture_pos.w,
                                                          texture_pos.y + texture_pos.h));
         vertices.push_back(vicmil::CoordTexCoord_XYZUV_f(layout_pos.x + layout_pos.w,
-                                                         layout_pos.y, 1.0f - (layer + 1) / 2000000.0f,
+                                                         layout_pos.y, layer_to_depth(layer),
                                                          texture_pos.x + texture_pos.w,
                                                          texture_pos.y));
         vertices.push_back(vicmil::CoordTexCoord_XYZUV_f(layout_pos.x,
-                                                         layout_pos.y - layout_pos.h, 1.0f - (layer + 1) / 2000000.0f,
+                                                         layout_pos.y - layout_pos.h, layer_to_depth(layer),
                                                          texture_pos.x,
                                                          texture_pos.y + texture_pos.h));
     }
@@ -1857,7 +1867,7 @@ namespace vicmil
             // Provide a default vertex buffer so the user don't have to think about it
             std::vector<CoordColor_XYZRGBA_f> vertex_buffer_contents = {};
             add_color_rect_to_triangle_buffer(vertex_buffer_contents, GuiEngine::RectGL(-0.5, 0.5, 1, 1), 0, 255, 0, 0);
-            vicmil::VertexBuffer vertex_buffer = vicmil::VertexBuffer::from_triangle_vector(vertex_buffer_contents);
+            vicmil::VertexBuffer vertex_buffer = vicmil::VertexBuffer::from_vertex_vector(vertex_buffer_contents);
             return vertex_buffer;
         }
 
@@ -1866,16 +1876,16 @@ namespace vicmil
             gpu_program_CoordColor_XYZRGBA_f_no_proj.bind_program();
             vicmil::DefaultGpuPrograms::set_vertex_buffer_layout_CoordColor_XYZRGBA_f(gpu_program_CoordColor_XYZRGBA_f_no_proj);
             default_vertex_buffer.bind();
-            default_vertex_buffer.overwrite_triangle_vector(vertices);
+            default_vertex_buffer.overwrite_vertex_vector(vertices);
             default_vertex_buffer.draw_triangles();
         }
         void draw_2d_CoordTexCoord_XYZUV_f_vertex_buffer(std::vector<vicmil::CoordTexCoord_XYZUV_f> &vertices, vicmil::GPUImage gpu_image)
         {
             gpu_program_CoordTexCoord_XYZUV_f_no_proj.bind_program();
             vicmil::DefaultGpuPrograms::set_vertex_buffer_layout_CoordTexCoord_XYZUV_f(gpu_program_CoordTexCoord_XYZUV_f_no_proj);
-            gpu_image.texture.bind();
             default_vertex_buffer.bind();
-            default_vertex_buffer.overwrite_triangle_vector(vertices);
+            default_vertex_buffer.overwrite_vertex_vector(vertices);
+            gpu_image.texture.bind();
             default_vertex_buffer.draw_triangles();
         }
         void draw_3d_CoordColor_XYZRGBA_f_vertex_buffer(std::vector<vicmil::CoordColor_XYZRGBA_f> &vertices, glm::mat4 transform_matrix)
@@ -1883,7 +1893,7 @@ namespace vicmil
             gpu_program_CoordColor_XYZRGBA_f_proj.bind_program();
             vicmil::DefaultGpuPrograms::set_vertex_buffer_layout_CoordColor_XYZRGBA_f(gpu_program_CoordColor_XYZRGBA_f_proj);
             default_vertex_buffer.bind();
-            default_vertex_buffer.overwrite_triangle_vector(vertices);
+            default_vertex_buffer.overwrite_vertex_vector(vertices);
             default_uniform_buffer.set_matrix(transform_matrix, gpu_program_CoordColor_XYZRGBA_f_proj.id);
             default_vertex_buffer.draw_triangles();
         }
@@ -1892,7 +1902,7 @@ namespace vicmil
             gpu_program_CoordColor_XYZRGBA_f_proj.bind_program();
             vicmil::DefaultGpuPrograms::set_vertex_buffer_layout_CoordColor_XYZRGBA_f(gpu_program_CoordColor_XYZRGBA_f_proj);
             default_vertex_buffer.bind();
-            default_vertex_buffer.overwrite_triangle_vector(vertices);
+            default_vertex_buffer.overwrite_vertex_vector(vertices);
             default_uniform_buffer.set_matrix(transform_matrix, gpu_program_CoordColor_XYZRGBA_f_proj.id);
             default_vertex_buffer.draw_points();
         }
@@ -1902,7 +1912,7 @@ namespace vicmil
             vicmil::DefaultGpuPrograms::set_vertex_buffer_layout_CoordTexCoord_XYZUV_f(gpu_program_CoordTexCoord_XYZUV_f_proj);
             gpu_image.texture.bind();
             default_vertex_buffer.bind();
-            default_vertex_buffer.overwrite_triangle_vector(vertices);
+            default_vertex_buffer.overwrite_vertex_vector(vertices);
             default_uniform_buffer.set_matrix(transform_matrix, gpu_program_CoordTexCoord_XYZUV_f_proj.id);
             default_vertex_buffer.draw_triangles();
         }
