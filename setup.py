@@ -16,9 +16,9 @@ from vicmil_pip.packages.pyUtil import *
 
 def get_compiler_path():
     if platform.system() == "Windows": # Windows
-        return '"' + get_directory_path(__file__, 0) + "/emsdk/upstream/emscripten/em++.bat" + '"'
+        return get_directory_path(__file__, 0) + "/emsdk/upstream/emscripten/em++.bat"
     else:
-        return '"' + get_directory_path(__file__, 0) + "/emsdk/upstream/emscripten/em++" + '"'
+        return get_directory_path(__file__, 0) + "/emsdk/upstream/emscripten/em++"
     
 
 def get_output_file_extension():
@@ -40,13 +40,15 @@ def install():
         run_command('"' + emsdk_path + '" install latest')
         run_command('"' + emsdk_path + '" activate latest')
     elif platform.system() == "Windows":
+        tmp_unzip_dir = get_directory_path(__file__) + "/unzip_tmp"
         tmp_zip = get_directory_path(__file__, 0) + "/emsdk_temp.zip"
-        google_drive_path = "TODO"
+        google_drive_path = "https://drive.google.com/file/d/1bYu_jhoHGCNVD9WTA79SoBsj9NAESYsw/view?usp=drive_link"
         download_file_from_google_drive(google_drive_path, tmp_zip)
-        unzip_without_top_dir(tmp_zip, emsdk_output_directory, True)
+        unzip_without_top_dir(tmp_zip, tmp_unzip_dir, True)
 
-        old_name = emsdk_output_directory + "/emsdk-win"
-        new_name = emsdk_output_directory + "emsdk"
+
+        old_name = tmp_unzip_dir + "/emsdk-win"
+        new_name = emsdk_output_directory
         os.rename(old_name, new_name)
 
 
