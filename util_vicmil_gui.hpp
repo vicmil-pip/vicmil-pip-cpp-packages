@@ -87,17 +87,21 @@ namespace vicmil
 
         void update_gpu_image_with_cpu_image()
         {
+            // Print("update_gpu_image_with_cpu_image");
             if (!cpu_image_updated)
             {
+                // Print("cpu image has not been updated");
                 return; // No need to push a gpu image if the cpu image has not been updated
             }
             cpu_image_updated = false;
             if (gpu_image.texture.no_texture)
             {
+                // Print("Create new gpu image");
                 gpu_image = vicmil::GPUImage::from_CPUImage(cpu_image);
             }
             else
             {
+                // Print("Overwrite old gpu image");
                 gpu_image.overwrite_with_CPUImage(cpu_image);
             }
         }
@@ -131,12 +135,14 @@ namespace vicmil
             if (!image_manager.get()->contains_image(image_name))
             {
                 vicmil::ImageRGBA_UChar image = font_loader.get()->get_character_image_rgba(unicode);
+                // Print("add_image");
                 image_manager.get()->add_image(image_name, image);
             }
         }
 
         inline vicmil::GuiEngine::RectGL get_unicode_image_pos_gl(int unicode)
         {
+            // Print("_make_sure_image_exists");
             _make_sure_image_exists(unicode);
             std::string image_name = _get_image_name(unicode);
             return image_manager.get()->get_image_pos_gl(image_name);
@@ -156,18 +162,18 @@ namespace vicmil
      */
     {
     public:
-        std::shared_ptr<FontImageManager> font_image_manager;
+        std::shared_ptr<FontImageManager> font_image_manager = std::shared_ptr<FontImageManager>();
 
         // The Unicode characters used in the text
-        std::vector<int> _text_unicode;
-        RectT<int> _boundary;
+        std::vector<int> _text_unicode = {};
+        RectT<int> _boundary = RectT<int>(0, 0, 0, 0);
 
         // If the text should wrap around if it is outside boundary
-        bool _wrap;
+        bool _wrap = false;
 
         // Where each letter should be drawn, and where on the texture the image of the character can be found
-        std::vector<RectT<int>> _draw_positions;
-        std::vector<RectT<float>> _tex_positions;
+        std::vector<RectT<int>> _draw_positions = {};
+        std::vector<RectT<float>> _tex_positions = {};
 
         // Used while building the draw positions
         int _newline_offset_x = 0;
@@ -175,8 +181,8 @@ namespace vicmil
         std::vector<RectT<int>> _raw_draw_positions; // The draw positions if ignoring newlines, wrapping and the boundry
 
         // How much to offset, used for scroll etc. and specified by the user
-        int _scroll_offset_x;
-        int _scroll_offset_y;
+        int _scroll_offset_x = 0;
+        int _scroll_offset_y = 0;
 
         void set_scroll_offset(int x, int y)
         {
@@ -295,10 +301,11 @@ namespace vicmil
             {
                 ThrowError("No font loader defined");
             }
+            // Print("get_character_image_positions");
             _raw_draw_positions = font_image_manager.get()->font_loader.get()->get_character_image_positions(text_unicode);
             _draw_positions = _raw_draw_positions;
 
-            // Print("Resize tex positions");
+            // Print("Resize tex positions " << text_unicode.size());
             _tex_positions.resize(text_unicode.size(), vicmil::GuiEngine::RectGL(0, 0, 0, 0));
 
             // Add some offset to handle newlines, since the text is otherwise on one line
@@ -318,6 +325,7 @@ namespace vicmil
 
                 // Add additional offset parameters
                 // Print("Add offset");
+                // Print("raw draw positions y: " << _raw_draw_positions[i].y);
                 _draw_positions[i].x = _raw_draw_positions[i].x + _newline_offset_x + _boundary.x;
                 _draw_positions[i].y = _raw_draw_positions[i].y + _newline_offset_y + _boundary.y;
 
@@ -336,9 +344,21 @@ namespace vicmil
                 if (_boundary.is_overlapping(_draw_positions[i]))
                 {
                     // Get the texture position of the letter
+                    // Print("get_unicode_image_pos_gl " << text_unicode[i]);
                     _tex_positions[i] = font_image_manager.get()->get_unicode_image_pos_gl(text_unicode[i]);
+                    // Print("pos: " << _tex_positions[i].to_string());
 
                     _handle_outside_boundry_cases(i);
+                }
+                else
+                {
+                    // Print("Text outside boundry!");
+                    // Print("boundry: " << _boundary.to_string());
+                    // Print("draw pos: " << _draw_positions[i].to_string());
+                    _draw_positions[i].w = 0;
+                    _draw_positions[i].h = 0;
+                    _tex_positions[i].w = 0;
+                    _tex_positions[i].h = 0;
                 }
             }
         }
@@ -361,7 +381,14 @@ namespace vicmil
             }
             else if (cursor_index < _draw_positions.size())
             {
-                pos.x = _draw_positions[cursor_index].x - pos.w;
+                if (_text_unicode[cursor_index - 1] != '\n')
+                {
+                    pos.x = _draw_positions[cursor_index].x - pos.w;
+                }
+                else
+                {
+                    // Do nothing
+                }
             }
             else
             {
@@ -395,6 +422,7 @@ namespace vicmil
             std::vector<CoordTexCoord_XYZUV_f> return_vec;
             for (int i = 0; i < _draw_positions.size(); i++)
             {
+                // Print("Tex pos " << i << " " << _tex_positions[i].to_string());
                 if (_tex_positions[i].w > 0)
                 {
                     vicmil::GuiEngine::RectGL rect_gl_pos = vicmil::GuiEngine::rect_to_rect_gl(_draw_positions[i], screen_w, screen_h);

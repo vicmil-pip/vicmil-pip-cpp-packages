@@ -128,6 +128,7 @@ namespace vicmil
         }
         void update() override
         {
+            // Print("TextBoxWidget::update");
             // Update if the text element is selected
             if (data.get()->mouse_left_clicked || data.get()->mouse_right_clicked)
             {
@@ -150,8 +151,8 @@ namespace vicmil
                 // Handle the user typing text
                 if (text_input.update_text_input(data.get()->events))
                 {
-                    PrintExpr(text_input.text_unicode.size());
-                    PrintExpr(text_input.get_text_utf8_with_cursor());
+                    // PrintExpr(text_input.text_unicode.size());
+                    // PrintExpr(text_input.get_text_utf8_with_cursor());
                 }
             }
 
@@ -187,6 +188,7 @@ namespace vicmil
             text_draw_manager.set_boundry(data.get()->gui_engine.get()->get_element_pos(widget_name));
 
             // Get the position of all the letters and draw them on the screen:
+            // Print("TextBoxWidget update_text_positions" << text_input.text_unicode.size());
             text_draw_manager.update_text_positions(text_input.text_unicode);
             int screen_w = data.get()->gui_engine.get()->_screen_w;
             int screen_h = data.get()->gui_engine.get()->_screen_h;
