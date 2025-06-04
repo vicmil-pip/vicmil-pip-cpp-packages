@@ -1315,6 +1315,11 @@ namespace vicmil
             text_unicode_copy.insert(text_unicode_copy.begin() + cursor_pos, '|');
             return vicmil::unicodeCodePointsToUtf8(text_unicode_copy);
         }
+        void set_text(std::string new_text_utf8)
+        {
+            text_unicode = vicmil::utf8ToUnicodeCodePoints(new_text_utf8);
+            cursor_pos = std::min(cursor_pos, (int)text_unicode.size());
+        }
         void get_cursor_row_col(int *row, int *col)
         {
             int cur_row = 0, cur_col = 0;
@@ -1348,7 +1353,11 @@ namespace vicmil
                     PrintExpr(event.text.text);
                     std::vector<int> new_text = vicmil::utf8ToUnicodeCodePoints(event.text.text);
                     PrintExpr(new_text.size());
-                    text_unicode.insert(text_unicode.end(), new_text.begin(), new_text.end());
+                    if (cursor_pos > text_unicode.size() - 1)
+                    {
+                        cursor_pos = text_unicode.size() - 1;
+                    }
+                    text_unicode.insert(text_unicode.begin() + cursor_pos, new_text.begin(), new_text.end());
                     cursor_pos += new_text.size();
                     composing_text_unicode.clear();
                     text_updated = true;
