@@ -1353,9 +1353,9 @@ namespace vicmil
                     PrintExpr(event.text.text);
                     std::vector<int> new_text = vicmil::utf8ToUnicodeCodePoints(event.text.text);
                     PrintExpr(new_text.size());
-                    if (cursor_pos > text_unicode.size() - 1)
+                    if (cursor_pos > text_unicode.size())
                     {
-                        cursor_pos = text_unicode.size() - 1;
+                        cursor_pos = text_unicode.size();
                     }
                     text_unicode.insert(text_unicode.begin() + cursor_pos, new_text.begin(), new_text.end());
                     cursor_pos += new_text.size();
