@@ -63,6 +63,7 @@ class BuildSetup:
         self.n1_compiler_path: str = get_default_compiler_path(browser=self.browser_flag)
         if os.path.exists(get_directory_path(__file__, 1) + "/cppMingwStdThreads"):
             self.add_vicmil_pip_package("cppMingwStdThreads") # Fix missing threads and mutex implementation on windows
+            self.n4_macros.append("USE_MINGW_STD_THREADS")
 
         self.n9_output_file: str = output_dir + "/" + get_default_output_file(browser=self.browser_flag)
 
