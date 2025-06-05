@@ -14,9 +14,13 @@ The purpose of this project is to provide a standard c++ compiler for each platf
 
 Just run setup.py, it will
 
-For linux, install gcc(~1.5GB) inside /gcc-13.2.0
+For linux, install gcc(~1.5GB) inside compiler/gcc-13.2.0
 
-For windows, install mingw64(~460 MB) inside /mingw64
+For windows, install mingw64(~703 MB) inside compiler/mingw64
+
+linux source: [https://ftp.gnu.org/gnu/gcc/gcc-13.2.0/]() (Then built from source)
+
+windows source(x86_64-15.1.0-release-posix-seh-ucrt-rt_v12-rev0): [https://github.com/niXman/mingw-builds-binaries/releases](), also see: [https://www.mingw-w64.org/downloads/]()
 
 ## Note
 

@@ -48,7 +48,7 @@ def install():
     drive_url = None
     if platform.system() == "Windows":
         tmp_file_path = get_directory_path(__file__) + "/drive_download_temp.zip"
-        drive_url = "https://drive.google.com/file/d/1Tgn5f0IkBI7NklPYb79Ez8400WfOefad/view?usp=drive_link"
+        drive_url = "https://drive.google.com/file/d/10pyRfw7egdwIJc45M_hv1UresXO4eaAQ/view?usp=drive_link"
     if platform.system() == "Linux":
         tmp_file_path = get_directory_path(__file__) + "/drive_download_temp.tar.gz"
         drive_url = "https://drive.google.com/file/d/10JEJIwXqK7K311d2p4st9YKujWFHgHT3/view?usp=drive_link"
