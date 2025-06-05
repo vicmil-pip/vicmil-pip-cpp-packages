@@ -25,7 +25,7 @@ void init()
     text_input.set_cursor_render_pos(vicmil::RectT<int>(100, 100, 1, 10));
 }
 
-int main()
+int main(int argc, char *argv[])
 {
     vicmil::set_app_init(init);
     vicmil::set_app_update(update);
