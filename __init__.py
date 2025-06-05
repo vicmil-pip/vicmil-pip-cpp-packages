@@ -7,4 +7,4 @@ sys.path.append(str(Path(__file__).resolve().parents[3]))
 sys.path.append(str(Path(__file__).resolve().parents[4]))
 sys.path.append(str(Path(__file__).resolve().parents[5]))
 
-from vicmil_pip.packages.cppBasicCompiler.setup import *
+from vicmil_pip.packages.cppCompiler.setup import *
