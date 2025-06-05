@@ -14,7 +14,7 @@ sys.path.append(str(Path(__file__).resolve().parents[2]))
 sys.path.append(str(Path(__file__).resolve().parents[3])) 
 sys.path.append(str(Path(__file__).resolve().parents[4])) 
 
-from vicmil_pip.packages.cppBuild import *
+from vicmil_pip.packages.pyUtil import *
 
 import zipfile
 
