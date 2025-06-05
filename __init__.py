@@ -321,7 +321,7 @@ def convert_file_to_cpp(input_file: str, output_directory: str):
     # Start creating the header file
     with open(cpp_path, 'w') as cpp_file:
         # Write the C++ array header
-        cpp_file.write(f'#include "{input_filename}.hpp"\n\n')
+        cpp_file.write(f'#include "{input_filename.replace(" ", "_")}.hpp"\n\n')
         cpp_file.write(f"#ifndef {var_name}_H\n")
         cpp_file.write(f"#define {var_name}_H\n\n")
         cpp_file.write(f"unsigned char {var_name}_data[] = {{\n")
