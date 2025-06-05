@@ -1,6 +1,6 @@
 #include "util_vicmil_gui.hpp"
 
-int main()
+int main(int argc, char *argv[])
 {
     Print("Creating tree");
     vicmil::Tree my_tree;

@@ -10,14 +10,17 @@ sys.path.append(str(Path(__file__).resolve().parents[4]))
 
 from vicmil_pip.packages.cppBuild import BuildSetup, get_directory_path
 
+def get_dependencies(browser: bool):
+    return [
+        "cppBasics",
+        "cppOpengl",
+        "cppStb",
+        "cppBinPacking",
+        "assetFonts"
+    ]
+
 def get_build_setup(browser: bool):
     new_build_setup = BuildSetup(browser=browser)
-    new_build_setup.add_vicmil_pip_package("cppBasics")
-    new_build_setup.add_vicmil_pip_package("cppOpengl")
-    new_build_setup.add_vicmil_pip_package("cppStb")
-    new_build_setup.add_vicmil_pip_package("cppBinPacking")
-    new_build_setup.add_vicmil_pip_package("assetFonts")
-
     new_build_setup.n6_include_paths.append(get_directory_path(__file__, 0))
     
     return new_build_setup

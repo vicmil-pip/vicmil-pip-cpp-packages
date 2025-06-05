@@ -1,4 +1,4 @@
-#include "util_vicmil_gui.hpp"
+#include "util_vicmil_gui_bonus.hpp"
 
 vicmil::Window window;
 vicmil::DefaultGpuPrograms gpu_programs;
@@ -42,7 +42,7 @@ void init()
     vicmil::setup_fullscreen_canvas();
 }
 
-int main()
+int main(int argc, char *argv[])
 {
     vicmil::set_app_init(init);
     vicmil::set_app_update(update);

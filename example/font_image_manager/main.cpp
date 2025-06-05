@@ -34,7 +34,7 @@ void init()
     vicmil::download_file("out_img.png", image_png);
 }
 
-int main()
+int main(int argc, char *argv[])
 {
     vicmil::set_app_init(init);
     vicmil::set_app_update(update);

@@ -60,7 +60,7 @@ void init()
     vicmil::setup_fullscreen_canvas();
 }
 
-int main()
+int main(int argc, char *argv[])
 {
     vicmil::set_app_init(init);
     vicmil::set_app_update(update);
