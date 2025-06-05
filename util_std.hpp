@@ -25,18 +25,20 @@ Contains documentation for how to do some things using the standard library: Eve
 #include <vector> // Contains std::vector
 #include <list>   // Contains std::list
 
-#include <math.h>  // Includes basic math operations such as sinus, cosinus etc.
-#include <cassert> // For assering values during runtime
-#include <regex>   // Includes functions for regex
-#include <chrono>  // Includes functions related to time
-#include <thread>  // Includes functions for handling multi-thread applications
-#include <mutex>   // Support library for using threads, includes locks
-#include <future>  // Support library for using threads, used for asynchronous retrieval of values
-#ifdef __MINGW32__ // You need additional includes when compiling using mingw on windows, since the defualt implementations are missing some things
+#include <math.h>            // Includes basic math operations such as sinus, cosinus etc.
+#include <cassert>           // For assering values during runtime
+#include <regex>             // Includes functions for regex
+#include <chrono>            // Includes functions related to time
+#include <thread>            // Includes functions for handling multi-thread applications
+#include <mutex>             // Support library for using threads, includes locks
+#include <future>            // Support library for using threads, used for asynchronous retrieval of values
+#ifdef USE_MINGW_STD_THREADS // You need additional includes when compiling mingw(for some versions) on windows, since the defualt implementations are missing some things
 // requires the cppMingwStdThreads package
+#ifdef __MINGW32__
 #include "mingw-std-threads/mingw.thread.h"
 #include "mingw-std-threads/mingw.mutex.h"
 #include "mingw-std-threads/mingw.future.h"
+#endif
 #endif
 #include <complex.h> // For supporting complex number operations
 
