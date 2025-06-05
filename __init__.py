@@ -61,9 +61,8 @@ class BuildSetup:
     def add_default_parameters(self, cpp_file_paths: List[str], output_dir: str, O2_optimization=True):
         # Set compiler path, and output path
         self.n1_compiler_path: str = get_default_compiler_path(browser=self.browser_flag)
-        if os.path.exists(get_directory_path(__file__, 1) + "/cppMingwStdThreads"):
-            self.add_vicmil_pip_package("cppMingwStdThreads") # Fix missing threads and mutex implementation on windows
-            self.n4_macros.append("USE_MINGW_STD_THREADS")
+        if os.path.exists(get_directory_path(__file__, 1) + "/cppBasicCompiler"):
+            self.add_vicmil_pip_package("cppBasicCompiler") # Fix missing threads and mutex implementation on windows
 
         self.n9_output_file: str = output_dir + "/" + get_default_output_file(browser=self.browser_flag)
 
