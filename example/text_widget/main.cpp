@@ -1,5 +1,5 @@
 #include "util_vicmil_gui_bonus.hpp"
-#include "Noto Sans Mono CJK JP Regular.otf.hpp"
+#include "Noto_Sans_Mono_CJK_JP_Regular.otf.hpp"
 
 vicmil::Window window;
 vicmil::DefaultGpuPrograms gpu_programs;
