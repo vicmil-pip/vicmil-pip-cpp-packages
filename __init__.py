@@ -280,8 +280,8 @@ def invoke_file(file_path: str):
 # Get the defualt compiler path within vicmil lib
 def get_default_compiler_path(browser = False):
     if not browser:
-        if os.path.exists(get_directory_path(__file__, 1) + "/cppBasicCompiler"):
-            import packages.cppBasicCompiler.setup as compiler_setup
+        if os.path.exists(get_directory_path(__file__, 1) + "/cppCompiler"):
+            import packages.cppCompiler.setup as compiler_setup
             compiler_setup.add_env_paths_to_compiler()
             return compiler_setup.get_compiler_path()
         else:
