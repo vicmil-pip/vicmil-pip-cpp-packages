@@ -61,6 +61,9 @@ class BuildSetup:
     def add_default_parameters(self, cpp_file_paths: List[str], output_dir: str, O2_optimization=True):
         # Set compiler path, and output path
         self.n1_compiler_path: str = get_default_compiler_path(browser=self.browser_flag)
+        if os.path.exists(get_directory_path(__file__, 1) + "/cppMingwStdThreads"):
+            self.add_vicmil_pip_package("cppMingwStdThreads") # Fix missing threads and mutex implementation on windows
+
         self.n9_output_file: str = output_dir + "/" + get_default_output_file(browser=self.browser_flag)
 
 
@@ -98,8 +101,19 @@ class BuildSetup:
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
 
+            # Add dependency packages
+            if hasattr(module, "get_dependencies"):
+                dependencies = module.get_dependencies(browser=self.browser_flag)
+                for dependency in dependencies:
+                    self.add_vicmil_pip_package(dependency)
+
             # Load the config from the file
             new_build_setup: BuildSetup = module.get_build_setup(self.browser_flag)  # Call a function from the script
+
+            # Add necessary dll files
+            if hasattr(module, "copy_dll_files"):
+                module.copy_dll_files(browser=self.browser_flag, output_dir=get_directory_path(self.n9_output_file))
+
 
             # Add config to build setup
             self.add_other_build_setup(new_build_setup)
@@ -290,8 +304,8 @@ def convert_file_to_cpp(input_file: str, output_directory: str):
 
     input_filename = input_file.split("/")[-1].split("\\")[-1]
 
-    header_path = output_directory + "/" + input_filename + ".hpp"
-    cpp_path = output_directory + "/" + input_filename + ".cpp"
+    header_path = output_directory + "/" + input_filename.replace(" ", "_") + ".hpp"
+    cpp_path = output_directory + "/" + input_filename.replace(" ", "_") + ".cpp"
 
     # Check if input file exists
     if not os.path.exists(input_file):
