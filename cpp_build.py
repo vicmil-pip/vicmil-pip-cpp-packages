@@ -9,6 +9,7 @@ sys.path.append(str(Path(__file__).resolve().parents[3]))
 sys.path.append(str(Path(__file__).resolve().parents[4])) 
 
 from vicmil_pip.packages.cppBuild import BuildSetup, get_directory_path
+import platform
 
 def get_dependencies(browser: bool):
     return [
@@ -39,11 +40,15 @@ def get_build_setup(browser: bool):
             
         # These will force sioclient to compile with C++11
         new_build_setup.n4_macros.append("_WEBSOCKETPP_CPP11_STL_")
-        new_build_setup.n4_macros.append("_WEBSOCKETPP_CPP11_FUNCTIONAL")
+        new_build_setup.n4_macros.append("_WEBSOCKETPP_CPP11_FUNCTIONAL_")
         new_build_setup.n4_macros.append("_WEBSOCKETPP_CPP11_TYPE_TRAITS_")
         new_build_setup.n4_macros.append("_WEBSOCKETPP_CPP11_CHRONO_")
 
         # Disable sockeio logging
         new_build_setup.n4_macros.append("SIO_DISABLE_LOGGING")
+
+        if platform.system() == "Windows":
+            # On windows, you must link against the socket library
+            new_build_setup.n8_library_files.append("ws2_32")
 
     return new_build_setup
