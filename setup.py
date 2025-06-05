@@ -35,7 +35,7 @@ def install():
 
     # Extract file contents by unzipping the downloaded file
     if platform.system() == "Windows":
-        unzip_file(
+        unzip_without_top_dir(
             zip_file_path=tmp_file_path,
             destination_folder=get_directory_path(__file__) + "/sdl_opengl",
             delete_zip=True
@@ -179,6 +179,30 @@ def unzip_file(zip_file_path: str, destination_folder: str, delete_zip=False):
         delete_file(zip_file_path)
 
 
+def unzip_without_top_dir(zip_file_path, destination_folder, delete_zip=False):
+    with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
+        # Get the list of file paths in the zip
+        members = zip_ref.namelist()
+        
+        # Identify the top-level directory (assume first path element)
+        top_level_dir = os.path.commonprefix(members).rstrip('/')
+        
+        for member in members:
+            # Remove the top-level directory from the file path
+            relative_path = os.path.relpath(member, top_level_dir)
+            
+            # Compute the final extraction path
+            final_path = os.path.join(destination_folder, relative_path)
+
+            if member.endswith('/'):  # Handle directories
+                os.makedirs(final_path, exist_ok=True)
+            else:  # Extract files
+                os.makedirs(os.path.dirname(final_path), exist_ok=True)
+                with zip_ref.open(member) as src, open(final_path, 'wb') as dst:
+                    dst.write(src.read())
+
+    if delete_zip:
+        delete_file(zip_file_path)
 
 
 
