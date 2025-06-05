@@ -25,13 +25,19 @@ Contains documentation for how to do some things using the standard library: Eve
 #include <vector> // Contains std::vector
 #include <list>   // Contains std::list
 
-#include <math.h>    // Includes basic math operations such as sinus, cosinus etc.
-#include <cassert>   // For assering values during runtime
-#include <regex>     // Includes functions for regex
-#include <chrono>    // Includes functions related to time
-#include <thread>    // Includes functions for handling multi-thread applications
-#include <mutex>     // Support library for using threads, includes locks
-#include <future>    // Support library for using threads, used for asynchronous retrieval of values
+#include <math.h>  // Includes basic math operations such as sinus, cosinus etc.
+#include <cassert> // For assering values during runtime
+#include <regex>   // Includes functions for regex
+#include <chrono>  // Includes functions related to time
+#include <thread>  // Includes functions for handling multi-thread applications
+#include <mutex>   // Support library for using threads, includes locks
+#include <future>  // Support library for using threads, used for asynchronous retrieval of values
+#ifdef __MINGW32__ // You need additional includes when compiling using mingw on windows, since the defualt implementations are missing some things
+// requires the cppMingwStdThreads package
+#include "mingw-std-threads/mingw.thread.h"
+#include "mingw-std-threads/mingw.mutex.h"
+#include "mingw-std-threads/mingw.future.h"
+#endif
 #include <complex.h> // For supporting complex number operations
 
 #include <typeindex> // For getting the index of different types, and other type information
@@ -53,9 +59,12 @@ Contains documentation for how to do some things using the standard library: Eve
 
 namespace vicmil
 {
-/**
- * Assert that some expression is true, and throw an error if not
- */
+/*
+[vmdoc:start]
+## Assert(x)
+Assert that some expression is true, and throw an error if not
+[vmdoc:end]
+*/
 #define Assert(x)                 \
     if ((x) == false)             \
     {                             \
@@ -64,26 +73,35 @@ namespace vicmil
         throw 0;                  \
     }
 
-/**
- * Print an error message and then throw an error
- */
+/*
+[vmdoc:start]
+## ThrowError(x)
+Print an error message and throw an exception
+[vmdoc:end]
+*/
 #define ThrowError(x) \
     Print(x);         \
     throw 0;
 
-/**
- * Assert that two numerical values are equal to each other
- * @arg v1: The first numerical value
- * @arg v2: The second numerical value
- * @arg deviance: the deviance allowed between v1 and v2
- */
+/*
+[vmdoc:start]
+## AssertEq(v1, v2, deviance)
+Assert that two numerical values are equal within a given deviance
+- `v1`: First value
+- `v2`: Second value
+- `deviance`: Allowed difference between `v1` and `v2`
+[vmdoc:end]
+*/
 #define AssertEq(v1, v2, deviance) Assert(abs(v1 - v2) < deviance)
 
-    /**
-     * Pad the string with spaces if it is too short
-     * @arg str: The string to operate on
-     * @arg length: How long the string should be after padding
-     */
+    /*
+    [vmdoc:start]
+    ## pad_str(str, length)
+    Pad a string with spaces until it reaches the desired length
+    - `str`: Input string
+    - `length`: Target length after padding
+    [vmdoc:end]
+    */
     std::string pad_str(std::string str, int length)
     {
         if (str.size() < length)
@@ -93,6 +111,14 @@ namespace vicmil
         return str;
     }
 
+    /*
+    [vmdoc:start]
+    ## split_string(str, separator)
+    Split a string by a given separator character
+    - `str`: The string to split
+    - `separator`: The character used to divide the string
+    [vmdoc:end]
+    */
     inline std::vector<std::string> split_string(std::string str, char separator)
     {
         if (str.length() == 0)
@@ -119,25 +145,24 @@ namespace vicmil
         return strings;
     }
 
-/**
- * Print the values with some extra nice decorator like
- * - line number
- * - file name
- * - etc.
- */
-#define Print(x)                                                                                                                                                                                  \
-    {                                                                                                                                                                                             \
-        const std::string line_info = vicmil::pad_str(vicmil::split_string(__FILE__, '/').back(), 20) + ":" + vicmil::pad_str(std::to_string(__LINE__), 4) + ":" + vicmil::pad_str(__func__, 20); \
-        std::cout << line_info << x << "\n";                                                                                                                                                      \
+/*
+[vmdoc:start]
+## Print(x)
+Print a value with contextual info (file, line, function)
+[vmdoc:end]
+*/
+#define Print(x)                                                                                                                                                  \
+    {                                                                                                                                                             \
+        const std::string line_info = vicmil::pad_str(vicmil::split_string(__FILE__, '/').back(), 20) + ":" + vicmil::pad_str(std::to_string(__LINE__), 4) + ":"; \
+        std::cout << line_info << x << "\n";                                                                                                                      \
     }
 
-/**
- * Print the values with some extra nice decorator like
- * - line number
- * - file name
- * - the content that is printed
- * - etc.
- */
+/*
+[vmdoc:start]
+## PrintExpr(x)
+Print an expression and its value with contextual info
+[vmdoc:end]
+*/
 #define PrintExpr(x)                                                                                                                                                                              \
     {                                                                                                                                                                                             \
         const std::string line_info = vicmil::pad_str(vicmil::split_string(__FILE__, '/').back(), 20) + ":" + vicmil::pad_str(std::to_string(__LINE__), 4) + ":" + vicmil::pad_str(__func__, 20); \
@@ -218,12 +243,16 @@ namespace vicmil
         test_class::test_name test_name = test_class::test_name();                                                                                        \
     }
 
-/**
- * Add a test to be executed
- */
+/*
+[vmdoc:start]
+## AddTest(test_name)
+Register a function as a test case to be executed later
+[vmdoc:end]
+*/
 #define AddTest(test_name) \
     TestWrapper(test_name##_, void test() { test_name(); });
 
+    // [vmdoc:start]
     int add_(int x, int y)
     {
         return x + y;
@@ -241,15 +270,22 @@ namespace vicmil
     //    vicmil::TestClass::run_all_tests();
     //    return 0;
     //}
+    // [vmdoc:end]
 
     // ============================================================
     //                      String operations
     // ============================================================
 
     /*
-    Convert a vector of something into a string
-    example: "{123.321, 314.0, 42.0}"
-    */
+    /*
+[vmdoc:start]
+## vec_to_str(vec)
+Convert a vector of numbers to a formatted string
+- `vec`: The input vector
+
+example: "{123.321, 314.0, 42.0}"
+[vmdoc:end]
+*/
     template <class T>
     std::string vec_to_str(const std::vector<T> &vec)
     {
