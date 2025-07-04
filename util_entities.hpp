@@ -75,8 +75,8 @@ namespace vicmil
     // Reference to an entity
     struct EntityHandle
     {
-        uint64_t id;
-        uint64_t generation;
+        uint64_t id = 0;
+        uint64_t generation = 0;
 
         bool operator==(const EntityHandle &other) const
         {
@@ -86,6 +86,14 @@ namespace vicmil
         bool is_valid() const
         {
             return generation > 0; // Optional: use 0 as "null"
+        }
+
+        EntityHandle(uint64_t id_, uint64_t generation_) : id(id_), generation(generation_) {}
+        EntityHandle() {}
+
+        static EntityHandle null()
+        {
+            return EntityHandle();
         }
     };
 }
@@ -128,7 +136,7 @@ namespace vicmil
                     ThrowError("Allocating outside of range!");
                 }
                 id = generations.size();
-                generations.push_back(0);
+                generations.push_back(1);
             }
             return EntityHandle{id + start_id, generations[id]};
         }
@@ -267,5 +275,352 @@ namespace vicmil
     private:
         std::unordered_map<std::type_index, void *> component_map;
         std::unordered_map<std::type_index, IComponentStorage *> component_interface_map;
+    };
+
+    /*
+    ===================================================================
+                           Chunk allocation in 2d
+    ===================================================================
+    */
+
+    struct ChunkKey2D
+    {
+        int x, y;
+        bool operator==(const ChunkKey2D &other) const
+        {
+            return x == other.x && y == other.y;
+        }
+    };
+}
+namespace std
+{
+    template <>
+    struct hash<vicmil::ChunkKey2D>
+    {
+        size_t operator()(const vicmil::ChunkKey2D &k) const
+        {
+            return hash<int>()(k.x) ^ (hash<int>()(k.y) << 1);
+        }
+    };
+}
+
+namespace vicmil
+{
+    class GridChunk2D
+    {
+    public:
+        int _x, _y, _w, _h;
+        std::vector<EntityHandle> obj_id;
+
+        GridChunk2D(int x, int y, int w, int h) : _x(x), _y(y), _w(w), _h(h)
+        {
+            obj_id.resize(w * h, EntityHandle::null()); // -1 means empty
+        }
+
+        GridChunk2D() {}
+
+        EntityHandle get_obj(int x, int y)
+        {
+            int local_x = x - _x * _w;
+            int local_y = y - _y * _h;
+            return obj_id[local_y * _w + local_x];
+        }
+
+        void set_obj(int x, int y, EntityHandle val)
+        {
+            int local_x = x - _x * _w;
+            int local_y = y - _y * _h;
+            obj_id[local_y * _w + local_x] = val;
+        }
+    };
+
+    class GridChunkHashmap2D
+    {
+    public:
+        std::unordered_map<ChunkKey2D, GridChunk2D> chunk_hashmap;
+        int chunk_size;
+
+        GridChunkHashmap2D(int chunk_size_) : chunk_size(chunk_size_) {}
+
+        void get_chunk_pos(int x, int y, int *chunk_x, int *chunk_y)
+        {
+            *chunk_x = x / chunk_size;
+            *chunk_y = y / chunk_size;
+        }
+
+        GridChunk2D *get_chunk(int chunk_x, int chunk_y)
+        {
+            ChunkKey2D key{chunk_x, chunk_y};
+            auto it = chunk_hashmap.find(key);
+            if (it != chunk_hashmap.end())
+            {
+                return &it->second;
+            }
+            return nullptr;
+        }
+
+        GridChunk2D *create_chunk(int chunk_x, int chunk_y)
+        {
+            ChunkKey2D key{chunk_x, chunk_y};
+            chunk_hashmap[key] = GridChunk2D(chunk_x, chunk_y, chunk_size, chunk_size);
+            return &chunk_hashmap[key];
+        }
+
+        EntityHandle get_obj(int x, int y)
+        {
+            int chunk_x, chunk_y;
+            get_chunk_pos(x, y, &chunk_x, &chunk_y);
+            auto chunk = get_chunk(chunk_x, chunk_y);
+            if (!chunk)
+            {
+                return EntityHandle::null();
+            }
+            return chunk->get_obj(x, y);
+        }
+
+        void set_obj(int x, int y, EntityHandle val)
+        {
+            int chunk_x, chunk_y;
+            get_chunk_pos(x, y, &chunk_x, &chunk_y);
+            ChunkKey2D key{chunk_x, chunk_y};
+            if (chunk_hashmap.find(key) == chunk_hashmap.end())
+            {
+                chunk_hashmap[key] = GridChunk2D(chunk_x, chunk_y, chunk_size, chunk_size);
+            }
+            chunk_hashmap[key].set_obj(x, y, val);
+        }
+
+        void delete_chunk(int chunk_x, int chunk_y)
+        {
+            ChunkKey2D key{chunk_x, chunk_y};
+            chunk_hashmap.erase(key);
+        }
+    };
+
+    // Used for free-positioned objects
+    class FreeChunk2D
+    {
+    public:
+        int _x, _y, _w, _h;
+        std::set<EntityHandle> objects;
+
+        FreeChunk2D(int x, int y, int w, int h) : _x(x), _y(y), _w(w), _h(h) {}
+    };
+
+    class FreeChunkHashmap2D
+    {
+    public:
+        std::unordered_map<ChunkKey2D, FreeChunk2D> chunk_hashmap;
+        int chunk_size;
+
+        FreeChunkHashmap2D(int chunk_size) : chunk_size(chunk_size) {}
+
+        void get_chunk_pos(int x, int y, int *chunk_x, int *chunk_y)
+        {
+            *chunk_x = x / chunk_size;
+            *chunk_y = y / chunk_size;
+        }
+
+        std::set<EntityHandle> *get_chunk_objects(int chunk_x, int chunk_y)
+        {
+            ChunkKey2D key{chunk_x, chunk_y};
+            auto it = chunk_hashmap.find(key);
+            if (it != chunk_hashmap.end())
+                return &it->second.objects;
+            return nullptr;
+        }
+
+        FreeChunk2D *get_chunk(int chunk_x, int chunk_y)
+        {
+            ChunkKey2D key{chunk_x, chunk_y};
+            auto it = chunk_hashmap.find(key);
+            if (it != chunk_hashmap.end())
+                return &it->second;
+            return nullptr;
+        }
+
+        void new_chunk(int chunk_x, int chunk_y)
+        {
+            ChunkKey2D key{chunk_x, chunk_y};
+            chunk_hashmap.emplace(key, FreeChunk2D(chunk_x, chunk_y, chunk_size, chunk_size));
+        }
+
+        void delete_chunk(int chunk_x, int chunk_y)
+        {
+            ChunkKey2D key{chunk_x, chunk_y};
+            chunk_hashmap.erase(key);
+        }
+    };
+
+    /*
+    ===================================================================
+                           Chunk allocation in 3d
+    ===================================================================
+    */
+
+    struct ChunkKey3D
+    {
+        int x, y, z;
+        bool operator==(const ChunkKey3D &other) const
+        {
+            return x == other.x && y == other.y && z == other.z;
+        }
+    };
+
+}
+namespace std
+{
+    template <>
+    struct hash<vicmil::ChunkKey3D>
+    {
+        size_t operator()(const vicmil::ChunkKey3D &k) const
+        {
+            return ((hash<int>()(k.x) ^ (hash<int>()(k.y) << 1)) >> 1) ^ (hash<int>()(k.z) << 1);
+        }
+    };
+}
+namespace vicmil
+{
+
+    class GridChunk3D
+    {
+    public:
+        int _x, _y, _z, _w, _h, _d;
+        std::vector<EntityHandle> obj_id;
+
+        GridChunk3D(int x, int y, int z, int w, int h, int d) : _x(x), _y(y), _z(z), _w(w), _h(h), _d(d)
+        {
+            obj_id.resize(w * h * d, EntityHandle::null());
+        }
+        GridChunk3D() {}
+
+        EntityHandle get_obj(int x, int y, int z)
+        {
+            int lx = x - _x * _w;
+            int ly = y - _y * _h;
+            int lz = z - _z * _d;
+            return obj_id[lz * _w * _h + ly * _w + lx];
+        }
+
+        void set_obj(int x, int y, int z, EntityHandle val)
+        {
+            int lx = x - _x * _w;
+            int ly = y - _y * _h;
+            int lz = z - _z * _d;
+            obj_id[lz * _w * _h + ly * _w + lx] = val;
+        }
+    };
+
+    class GridChunkHashmap3D
+    {
+    public:
+        std::unordered_map<ChunkKey3D, GridChunk3D> chunk_hashmap;
+        int chunk_size;
+
+        GridChunkHashmap3D(int chunk_size) : chunk_size(chunk_size) {}
+
+        void get_chunk_pos(int x, int y, int z, int *cx, int *cy, int *cz)
+        {
+            *cx = x / chunk_size;
+            *cy = y / chunk_size;
+            *cz = z / chunk_size;
+        }
+
+        GridChunk3D *get_chunk(int cx, int cy, int cz)
+        {
+            ChunkKey3D key{cx, cy, cz};
+            auto it = chunk_hashmap.find(key);
+            if (it != chunk_hashmap.end())
+                return &it->second;
+            return nullptr;
+        }
+
+        GridChunk3D *create_chunk(int chunk_x, int chunk_y, int chunk_z)
+        {
+            ChunkKey3D key{chunk_x, chunk_y, chunk_z};
+            chunk_hashmap[key] = GridChunk3D(chunk_x, chunk_y, chunk_z, chunk_size, chunk_size, chunk_size);
+            return &chunk_hashmap[key];
+        }
+
+        EntityHandle get_obj(int x, int y, int z)
+        {
+            int cx, cy, cz;
+            get_chunk_pos(x, y, z, &cx, &cy, &cz);
+            auto chunk = get_chunk(cx, cy, cz);
+            if (!chunk)
+                return EntityHandle::null();
+            return chunk->get_obj(x, y, z);
+        }
+
+        void set_obj(int x, int y, int z, EntityHandle val)
+        {
+            int cx, cy, cz;
+            get_chunk_pos(x, y, z, &cx, &cy, &cz);
+            ChunkKey3D key{cx, cy, cz};
+            if (chunk_hashmap.find(key) == chunk_hashmap.end())
+            {
+                chunk_hashmap[key] = GridChunk3D(cx, cy, cz, chunk_size, chunk_size, chunk_size);
+            }
+            chunk_hashmap[key].set_obj(x, y, z, val);
+        }
+
+        void delete_chunk(int cx, int cy, int cz)
+        {
+            chunk_hashmap.erase(ChunkKey3D{cx, cy, cz});
+        }
+    };
+
+    class FreeChunk3D
+    {
+    public:
+        int _x, _y, _z, _w, _h, _d;
+        std::set<EntityHandle> objects;
+
+        FreeChunk3D(int x, int y, int z, int w, int h, int d) : _x(x), _y(y), _z(z), _w(w), _h(h), _d(d) {}
+    };
+
+    class FreeChunkHashmap3D
+    {
+    public:
+        std::unordered_map<ChunkKey3D, FreeChunk3D> chunk_hashmap;
+        int chunk_size;
+
+        FreeChunkHashmap3D(int chunk_size) : chunk_size(chunk_size) {}
+
+        void get_chunk_pos(int x, int y, int z, int *cx, int *cy, int *cz)
+        {
+            *cx = x / chunk_size;
+            *cy = y / chunk_size;
+            *cz = z / chunk_size;
+        }
+
+        std::set<EntityHandle> *get_chunk_objects(int cx, int cy, int cz)
+        {
+            ChunkKey3D key{cx, cy, cz};
+            auto it = chunk_hashmap.find(key);
+            if (it != chunk_hashmap.end())
+                return &it->second.objects;
+            return nullptr;
+        }
+
+        FreeChunk3D *get_chunk(int cx, int cy, int cz)
+        {
+            ChunkKey3D key{cx, cy, cz};
+            auto it = chunk_hashmap.find(key);
+            if (it != chunk_hashmap.end())
+                return &it->second;
+            return nullptr;
+        }
+
+        void new_chunk(int cx, int cy, int cz)
+        {
+            ChunkKey3D key{cx, cy, cz};
+            chunk_hashmap.emplace(key, FreeChunk3D(cx, cy, cz, chunk_size, chunk_size, chunk_size));
+        }
+
+        void delete_chunk(int cx, int cy, int cz)
+        {
+            chunk_hashmap.erase(ChunkKey3D{cx, cy, cz});
+        }
     };
 }

@@ -9,7 +9,7 @@ public:
 
 int main()
 {
-    PoolAllocator<Position> pos_pool;
+    vicmil::PoolAllocator<Position> pos_pool;
     Position *p = pos_pool.allocate();
     p->x = 10;
 
