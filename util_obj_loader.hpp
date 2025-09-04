@@ -42,6 +42,40 @@ namespace vicmil
         int illum = 2;                    // Illumination model
         float metallic = 0.0f;            // Metallic factor (PBR)
         float roughness = 0.0f;           // Roughness factor (PBR)
+
+        // Helper function to convert a float array to string
+        std::string _array_to_string(const float arr[3]) const
+        {
+            std::ostringstream oss;
+            oss << "[" << arr[0] << ", " << arr[1] << ", " << arr[2] << "]";
+            return oss.str();
+        }
+
+        // Member method to convert Material to string
+        std::string to_string() const
+        {
+            std::ostringstream oss;
+            oss << "Material: " << name << "\n";
+            oss << "  Textures:\n";
+            oss << "    Diffuse: " << diffuse_texname << "\n";
+            oss << "    Ambient: " << ambient_texname << "\n";
+            oss << "    Specular: " << specular_texname << "\n";
+            oss << "    Bump: " << bump_texname << "\n";
+            oss << "    Emissive: " << emissive_texname << "\n";
+            oss << "  Properties:\n";
+            oss << "    Ka: " << _array_to_string(Ka) << "\n";
+            oss << "    Kd: " << _array_to_string(Kd) << "\n";
+            oss << "    Ks: " << _array_to_string(Ks) << "\n";
+            oss << "    Ke: " << _array_to_string(Ke) << "\n";
+            oss << "    Kr: " << _array_to_string(Kr) << "\n";
+            oss << "    Ns: " << Ns << "\n";
+            oss << "    Ni: " << Ni << "\n";
+            oss << "    d: " << d << "\n";
+            oss << "    illum: " << illum << "\n";
+            oss << "    metallic: " << metallic << "\n";
+            oss << "    roughness: " << roughness << "\n";
+            return oss.str();
+        }
     };
 
     struct Mesh
@@ -49,25 +83,9 @@ namespace vicmil
         std::vector<Vertex> vertices;
         std::vector<Face> faces;
         std::vector<Material> materials;
+        std::map<std::string, ImageRGBA_UChar> embedded_images; // Map of embedded images by name
 
-        void shift_texture_coords(int material_id_, float old_x, float old_y, float old_w, float old_h, float new_x, float new_y, float new_w, float new_h)
-        {
-            // Since you may want to put multiple textures at the same time, and they may no longer take up the entire surface, the texture positions may need to be updated
-            // The positions passed in refers to the position of the texture
-            for (int i = 0; i < vertices.size(); i++)
-            {
-                if (vertices[i].material_id != material_id_)
-                {
-                    continue;
-                }
-                float old_u = vertices[i].tex_cord.u;
-                float old_v = vertices[i].tex_cord.v;
-                vertices[i].tex_cord.u = (((old_u - old_x) * old_w) / new_w) + new_x;
-                vertices[i].tex_cord.v = (((old_v - old_y) * old_h) / new_h) + new_y;
-            }
-        }
-
-        std::vector<vicmil::Coord_XYZ_f> get_vertex_coordinates()
+        std::vector<vicmil::Coord_XYZ_f> get_vertex_coordinates() const
         { // float x, float y, float z
             std::vector<vicmil::Coord_XYZ_f> ret_vec = std::vector<vicmil::Coord_XYZ_f>();
             ret_vec.reserve(vertices.size());
@@ -77,46 +95,68 @@ namespace vicmil
             }
             return ret_vec;
         }
-        std::vector<vicmil::CoordTexCoord_XYZUV_f> get_vertex_texture_coordinates()
+        std::vector<vicmil::TexCoord_UV_f> get_vertex_texture_coordinates() const
         { // float x, float y, float z, float u, float v
-            std::vector<vicmil::CoordTexCoord_XYZUV_f> ret_vec = std::vector<vicmil::CoordTexCoord_XYZUV_f>();
+            std::vector<vicmil::TexCoord_UV_f> ret_vec = std::vector<vicmil::TexCoord_UV_f>();
             ret_vec.reserve(vertices.size());
             for (int i = 0; i < vertices.size(); i++)
             {
-                Vertex &v = vertices[i];
-                ret_vec.push_back(vicmil::CoordTexCoord_XYZUV_f(v.vertex_cord.x, v.vertex_cord.y, v.vertex_cord.z, v.tex_cord.u, v.tex_cord.v));
+                const Vertex &v = vertices[i];
+                ret_vec.push_back(vicmil::TexCoord_UV_f(v.tex_cord.u, v.tex_cord.v));
             }
             return ret_vec;
         }
-        std::vector<vicmil::CoordColor_XYZRGBA_f> get_vertex_coordinates_colors()
-        { // float x, float y, float z, float r, float g, float b
-            std::vector<vicmil::CoordColor_XYZRGBA_f> ret_vec = std::vector<vicmil::CoordColor_XYZRGBA_f>();
+        std::vector<int> get_vertex_material_indices() const
+        {
+            std::vector<int> ret_vec = std::vector<int>();
             ret_vec.reserve(vertices.size());
             for (int i = 0; i < vertices.size(); i++)
             {
-                if (vertices[i].material_id >= materials.size())
-                {
-                    ThrowError("Invalid material id! " << vertices[i].material_id);
-                }
-                Material &material_ = materials[vertices[i].material_id];
-                float r = material_.Kd[0];
-                float g = material_.Kd[1];
-                float b = material_.Kd[2];
-                vicmil::Coord_XYZ_f coord = vertices[i].vertex_cord;
-                ret_vec.push_back(vicmil::CoordColor_XYZRGBA_f(coord.x, coord.y, coord.z, r, g, b));
+                const Vertex &v = vertices[i];
+                ret_vec.push_back(v.material_id);
             }
             return ret_vec;
         }
-        std::vector<Face> &get_vertex_face_indicies()
+        std::vector<TriangleIndices_V012_i> get_vertex_triangle_indicies() const
         { // int vert1, int vert2, int vert3
-            return faces;
+            std::vector<TriangleIndices_V012_i> ret_vec = std::vector<TriangleIndices_V012_i>();
+            ret_vec.reserve(faces.size());
+            for (int i = 0; i < faces.size(); i++)
+            {
+                ret_vec.push_back(TriangleIndices_V012_i(faces[i].vertex_indices[0], faces[i].vertex_indices[1], faces[i].vertex_indices[2]));
+            }
+            return ret_vec;
+        }
+        std::vector<std::string> get_material_texture_names() const
+        {
+            std::vector<std::string> ret_vec = std::vector<std::string>();
+            ret_vec.reserve(materials.size());
+            for (int i = 0; i < materials.size(); i++)
+            {
+                ret_vec.push_back(materials[i].diffuse_texname);
+            }
+            return ret_vec;
+        }
+        std::vector<ColorRGBA_f> get_material_colors() const
+        {
+            std::vector<ColorRGBA_f> ret_vec = std::vector<ColorRGBA_f>();
+            ret_vec.reserve(materials.size());
+            for (int i = 0; i < materials.size(); i++)
+            {
+                float r = materials[i].Kd[0];
+                float g = materials[i].Kd[1];
+                float b = materials[i].Kd[2];
+                ret_vec.push_back(ColorRGBA_f(r, g, b, 255));
+            }
+            return ret_vec;
         }
         int get_triangle_count()
         {
             return faces.size();
         }
-        vicmil::Coord_XYZ_f get_avarage_vert_coord()
+        void get_center_and_radius(vicmil::Coord_XYZ_f *center, float *radius)
         {
+            // Get the center of the model
             double x = 0;
             double y = 0;
             double z = 0;
@@ -126,8 +166,201 @@ namespace vicmil
                 y += vertices[i].vertex_cord.y;
                 z += vertices[i].vertex_cord.z;
             }
-            vicmil::Coord_XYZ_f avg_coord = vicmil::Coord_XYZ_f((float)x / vertices.size(), (float)y / vertices.size(), (float)z / vertices.size());
-            return avg_coord;
+            *center = vicmil::Coord_XYZ_f((float)x / vertices.size(), (float)y / vertices.size(), (float)z / vertices.size());
+
+            // Compute the radius of the model
+            float radius_sq = 0;
+            for (int i = 0; i < vertices.size(); i++)
+            {
+                float center_dist =
+                    (center->x - vertices[i].vertex_cord.x) * (center->x - vertices[i].vertex_cord.x) +
+                    (center->y - vertices[i].vertex_cord.y) * (center->y - vertices[i].vertex_cord.y) +
+                    (center->z - vertices[i].vertex_cord.z) * (center->z - vertices[i].vertex_cord.z);
+                radius_sq = std::max(radius_sq, center_dist);
+            }
+            *radius = std::sqrt(radius_sq);
+        }
+        void to_obj_file_in_memory(std::string mtl_file_name,
+                                   std::string *obj_file,
+                                   std::string *mtl_file)
+        {
+            std::ostringstream obj;
+            std::ostringstream mtl;
+
+            // Link the MTL file
+            obj << "mtllib " << mtl_file_name << "\n";
+
+            // Write vertices
+            for (const auto &v : vertices)
+            {
+                obj << "v " << v.vertex_cord.x << " " << v.vertex_cord.y << " " << v.vertex_cord.z << "\n";
+            }
+
+            // Write texture coordinates
+            for (const auto &v : vertices)
+            {
+                obj << "vt " << v.tex_cord.u << " " << v.tex_cord.v << "\n";
+            }
+
+            // Write normals
+            for (const auto &v : vertices)
+            {
+                obj << "vn " << v.norm.x << " " << v.norm.y << " " << v.norm.z << "\n";
+            }
+
+            // Group faces by material
+            int current_material = -1;
+            for (const auto &f : faces)
+            {
+                int mat_id = vertices[f.vertex_indices[0]].material_id;
+                if (mat_id != current_material)
+                {
+                    current_material = mat_id;
+                    if (mat_id >= 0 && mat_id < (int)materials.size())
+                    {
+                        obj << "usemtl " << materials[mat_id].name << "\n";
+                    }
+                }
+
+                // Face indices in OBJ are 1-based
+                obj << "f";
+                for (int i = 0; i < 3; i++)
+                {
+                    int idx = f.vertex_indices[i] + 1;
+                    obj << " " << idx << "/" << idx << "/" << idx;
+                }
+                obj << "\n";
+            }
+
+            // Write MTL file
+            for (const auto &m : materials)
+            {
+                mtl << "newmtl " << m.name << "\n";
+                mtl << "Ka " << m.Ka[0] << " " << m.Ka[1] << " " << m.Ka[2] << "\n";
+                mtl << "Kd " << m.Kd[0] << " " << m.Kd[1] << " " << m.Kd[2] << "\n";
+                mtl << "Ks " << m.Ks[0] << " " << m.Ks[1] << " " << m.Ks[2] << "\n";
+                mtl << "Ke " << m.Ke[0] << " " << m.Ke[1] << " " << m.Ke[2] << "\n";
+                mtl << "d " << m.d << "\n";
+                mtl << "Ns " << m.Ns << "\n";
+                mtl << "illum " << m.illum << "\n";
+
+                if (!m.diffuse_texname.empty())
+                {
+                    mtl << "map_Kd " << m.diffuse_texname;
+                    if (get_file_extension(m.diffuse_texname) != "png")
+                    {
+                        mtl << ".png";
+                    }
+                    mtl << "\n";
+                }
+
+                if (!m.ambient_texname.empty())
+                {
+                    mtl << "map_Ka " << m.ambient_texname;
+                    if (get_file_extension(m.ambient_texname) != "png")
+                    {
+                        mtl << ".png";
+                    }
+                    mtl << "\n";
+                }
+                if (!m.specular_texname.empty())
+                {
+                    mtl << "map_Ks " << m.specular_texname;
+                    if (get_file_extension(m.specular_texname) != "png")
+                    {
+                        mtl << ".png";
+                    }
+                    mtl << "\n";
+                }
+                if (!m.bump_texname.empty())
+                {
+                    mtl << "map_Bump " << m.bump_texname;
+                    if (get_file_extension(m.bump_texname) != "png")
+                    {
+                        mtl << ".png";
+                    }
+                    mtl << "\n";
+                }
+                if (!m.emissive_texname.empty())
+                {
+                    mtl << "map_Ke " << m.emissive_texname;
+                    if (get_file_extension(m.emissive_texname) != "png")
+                    {
+                        mtl << ".png";
+                    }
+                    mtl << "\n";
+                }
+
+                mtl << "\n";
+            }
+
+            *obj_file = obj.str();
+            *mtl_file = mtl.str();
+        }
+        void to_obj_file(std::string obj_file_name, std::string output_dir)
+        {
+            // Note! If the model uses any images, then you have to save those yourself
+            std::string obj_file_content;
+            std::string mtl_file_content;
+            std::string mtl_file_name = vicmil::string_replace(obj_file_name, ".obj", ".mtl");
+            to_obj_file_in_memory(mtl_file_name, &obj_file_content, &mtl_file_content);
+            if (output_dir.size() > 0 && output_dir.back() != '/')
+            {
+                output_dir = output_dir + "/";
+            }
+            vicmil::FileManager obj_file_manager = vicmil::FileManager(output_dir + obj_file_name, true);
+            obj_file_manager.erase_file_contents();
+            obj_file_manager.write_str(obj_file_content);
+            vicmil::FileManager mtl_file_manager = vicmil::FileManager(output_dir + mtl_file_name, true);
+            mtl_file_manager.erase_file_contents();
+            mtl_file_manager.write_str(mtl_file_content);
+        }
+        std::string get_metadata()
+        {
+            std::ostringstream meta;
+
+            meta << "Mesh Metadata:\n";
+            meta << "-----------------\n";
+            meta << "Number of vertices: " << vertices.size() << "\n";
+            meta << "Number of faces: " << faces.size() << "\n";
+            meta << "Number of materials: " << materials.size() << "\n";
+            meta << "Number of embedded images: " << embedded_images.size() << "\n";
+
+            if (!materials.empty())
+            {
+                meta << "Materials:\n";
+                for (const auto &m : materials)
+                {
+                    meta << "  - " << m.name << "\n";
+                }
+            }
+
+            if (!vertices.empty())
+            {
+                // Compute bounding box
+                Coord_XYZ_f min(vertices[0].vertex_cord), max(vertices[0].vertex_cord);
+                for (const auto &v : vertices)
+                {
+                    const auto &c = v.vertex_cord;
+                    if (c.x < min.x)
+                        min.x = c.x;
+                    if (c.y < min.y)
+                        min.y = c.y;
+                    if (c.z < min.z)
+                        min.z = c.z;
+                    if (c.x > max.x)
+                        max.x = c.x;
+                    if (c.y > max.y)
+                        max.y = c.y;
+                    if (c.z > max.z)
+                        max.z = c.z;
+                }
+                meta << "Bounding Box:\n";
+                meta << "  Min: (" << min.x << ", " << min.y << ", " << min.z << ")\n";
+                meta << "  Max: (" << max.x << ", " << max.y << ", " << max.z << ")\n";
+            }
+
+            return meta.str();
         }
     };
 
@@ -255,12 +488,12 @@ namespace vicmil
         return mesh;
     }
 
-    Mesh load_obj_file(const std::string &obj_filename, const std::string &mtl_base_dir)
+    Mesh load_obj_file(const std::string &obj_file_path, const std::string &base_dir)
     {
         _RawMesh raw_mesh;
         std::string warn, err;
 
-        bool ret = tinyobj::LoadObj(&raw_mesh.attrib, &raw_mesh.shapes, &raw_mesh.materials, &warn, &err, obj_filename.c_str(), mtl_base_dir.c_str(), true, true);
+        bool ret = tinyobj::LoadObj(&raw_mesh.attrib, &raw_mesh.shapes, &raw_mesh.materials, &warn, &err, obj_file_path.c_str(), base_dir.c_str(), true, true);
 
         if (!warn.empty())
         {
@@ -377,4 +610,125 @@ namespace vicmil
         vicmil::Mesh mesh = vicmil::_load_obj_file(raw_mesh);
         return mesh;
     }
+
+    // ============================================================
+    //            Translating a mesh to buffers
+    // ============================================================
+    class MeshDefaultVertexIndexBuffers
+    {
+    public:
+        // Vertex buffer for colors
+        std::vector<CoordColor_XYZRGBA_f> color_vertex_buffer = {};
+        std::vector<TriangleIndices_V012_i> color_index_buffer = {};
+
+        // Vertex buffer for texture coordinates, for each image
+        std::vector<std::vector<CoordTexCoord_XYZUV_f>> texture_coord_buffer = {};
+        std::vector<std::vector<TriangleIndices_V012_i>> texture_index_buffer = {};
+        std::vector<std::string> texture_names = {};
+
+        void from_mesh(const Mesh &mesh)
+        {
+            Assert(color_index_buffer.size() == 0);
+            Assert(texture_coord_buffer.size() == 0);
+
+            std::vector<vicmil::Coord_XYZ_f> vertex_coordinates = mesh.get_vertex_coordinates();
+            std::vector<int> vertex_material_indices = mesh.get_vertex_material_indices();
+            std::vector<TriangleIndices_V012_i> vertex_triangle_indicies = mesh.get_vertex_triangle_indicies();
+            std::vector<vicmil::TexCoord_UV_f> vertex_texture_coordinates = mesh.get_vertex_texture_coordinates();
+            std::vector<std::string> material_texture_names = mesh.get_material_texture_names();
+            std::vector<ColorRGBA_f> material_colors = mesh.get_material_colors();
+
+            std::vector<bool> material_has_texture;
+            for (int i = 0; i < material_texture_names.size(); i++)
+            {
+                material_has_texture.push_back(!material_texture_names[i].empty());
+            }
+
+            std::vector<std::vector<CoordTexCoord_XYZUV_f>> tmp_texture_coords;
+            tmp_texture_coords.resize(material_texture_names.size());
+
+            // Split buffer into color vertices, and texture indices
+            std::map<int, int> old_index_to_new_index = {};
+            for (int i = 0; i < vertex_coordinates.size(); i++)
+            {
+                int material_id = vertex_material_indices[i];
+                if (!material_has_texture[material_id])
+                {
+                    color_vertex_buffer.push_back(
+                        CoordColor_XYZRGBA_f(
+                            vertex_coordinates[i].x,
+                            vertex_coordinates[i].y,
+                            vertex_coordinates[i].z,
+                            material_colors[i].r,
+                            material_colors[i].g,
+                            material_colors[i].b,
+                            material_colors[i].a));
+                    old_index_to_new_index[i] = color_vertex_buffer.size() - 1;
+                }
+                else
+                {
+                    tmp_texture_coords[material_id].push_back(
+                        CoordTexCoord_XYZUV_f(
+                            vertex_coordinates[i].x,
+                            vertex_coordinates[i].y,
+                            vertex_coordinates[i].z,
+                            vertex_texture_coordinates[i].u,
+                            vertex_texture_coordinates[i].v));
+                    old_index_to_new_index[i] = tmp_texture_coords[material_id].size() - 1;
+                }
+            }
+
+            std::vector<std::vector<TriangleIndices_V012_i>> tmp_texture_indices;
+            tmp_texture_indices.resize(material_texture_names.size());
+            for (int i = 0; i < vertex_triangle_indicies.size(); i++)
+            {
+                int material_id = vertex_material_indices[vertex_triangle_indicies[i].v0];
+                if (!material_has_texture[material_id])
+                {
+                    color_index_buffer.push_back(TriangleIndices_V012_i(
+                        old_index_to_new_index[vertex_triangle_indicies[i].v0],
+                        old_index_to_new_index[vertex_triangle_indicies[i].v1],
+                        old_index_to_new_index[vertex_triangle_indicies[i].v2]));
+                }
+                else
+                {
+                    tmp_texture_indices[material_id].push_back(TriangleIndices_V012_i(
+                        old_index_to_new_index[vertex_triangle_indicies[i].v0],
+                        old_index_to_new_index[vertex_triangle_indicies[i].v1],
+                        old_index_to_new_index[vertex_triangle_indicies[i].v2]));
+                }
+            }
+            for (int i = 0; i < material_texture_names.size(); i++)
+            {
+                if (material_has_texture[i])
+                {
+                    texture_names.push_back(material_texture_names[i]);
+                    texture_coord_buffer.push_back(tmp_texture_coords[i]);
+                    texture_index_buffer.push_back(tmp_texture_indices[i]);
+                }
+            }
+        }
+    };
+    class MeshDefaultTextureBuffers
+    {
+        std::map<std::string, ImageRGBA_UChar> image_buffer;
+        void add_mesh_embedded_images(const Mesh &mesh)
+        {
+            for (auto pair : mesh.embedded_images)
+            {
+                std::string image_name = pair.first;
+                if (image_buffer.count(image_name) == 0)
+                {
+                    image_buffer[image_name] = pair.second;
+                }
+            }
+        }
+        void add_image(std::string image_name, ImageRGBA_UChar image)
+        {
+            if (image_buffer.count(image_name) == 0)
+            {
+                image_buffer[image_name] = image;
+            }
+        }
+    };
 }
