@@ -9,7 +9,7 @@ void update()
 {
     vicmil::update_SDL();
     vicmil::clear_screen();
-    gpu_programs.draw_2d_CoordColor_XYZRGBA_f_vertex_buffer(vertices);
+    gpu_programs.draw_2d_CoordColor_XYZRGBA_f_vertices(vertices);
     window.show_on_screen();
 }
 

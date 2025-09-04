@@ -432,6 +432,15 @@ namespace vicmil
     public:
         GLBuffer vertex_buffer;
         GLBuffer index_buffer;
+
+        template <typename VERTEX>
+        static IndexVertexBufferPair from_vectors(const std::vector<VERTEX> &vertex_data, const std::vector<vicmil::TriangleIndices_i3> &index_data)
+        {
+            IndexVertexBufferPair new_buffer_pair;
+            new_buffer_pair.vertex_buffer = GLBuffer::generate_buffer(vertex_data.size() * sizeof(VERTEX), vertex_data.data(), GL_ARRAY_BUFFER);
+            new_buffer_pair.index_buffer = GLBuffer::generate_buffer(index_data.size() * sizeof(vicmil::TriangleIndices_i3), index_data.data(), GL_ELEMENT_ARRAY_BUFFER);
+            return new_buffer_pair;
+        }
         static IndexVertexBufferPair from_raw_data(void *index_data, unsigned int index_data_byte_size, void *vertex_data, unsigned int vertex_data_byte_size)
         {
             IndexVertexBufferPair new_buffer_pair;
@@ -463,7 +472,7 @@ namespace vicmil
          * @arg offset_in_bytes: The offset of where to begin in index buffer, great if you only want to use
          *    a part of the buffer, otherwise just leave it
          */
-        void draw(int triangle_count = -1, unsigned int offset_in_bytes = 0)
+        void draw_triangles(int triangle_count = -1, unsigned int offset_in_bytes = 0)
         {
             if (triangle_count > 0)
             {
@@ -480,44 +489,6 @@ namespace vicmil
         {
             vertex_buffer.delete_buffer();
             index_buffer.delete_buffer();
-        }
-    };
-
-    /**
-     * The index buffer is made up of a list of triangles, this can be one of them
-     *   The indicies refer to the vertex buffer
-     */
-    struct IndexedTriangleI3
-    {
-        int index1; // index of triangle corners
-        int index2; // index of triangle corners
-        int index3; // index of triangle corners
-        IndexedTriangleI3() {}
-        IndexedTriangleI3(unsigned int i1, unsigned int i2, unsigned int i3)
-        {
-            index1 = i1;
-            index2 = i2;
-            index3 = i3;
-        }
-        static IndexedTriangleI3 from_str(std::string i1, std::string i2, std::string i3)
-        {
-            return IndexedTriangleI3(std::stof(i1), std::stof(i2), std::stof(i3));
-        }
-        /**
-         * If we assume that the triangles are laid out linearly in index buffer, eg just one triangle after the other
-         *   Then we can just get the indecies very simply by:
-         */
-        static std::vector<IndexedTriangleI3> linear_indexed_triangles(int triangle_count)
-        {
-            std::vector<IndexedTriangleI3> vec;
-            vec.resize(triangle_count);
-            for (int i = 0; i < triangle_count; i++)
-            {
-                vec[i].index1 = i * 3 + 0;
-                vec[i].index2 = i * 3 + 1;
-                vec[i].index3 = i * 3 + 2;
-            }
-            return vec;
         }
     };
 
@@ -1011,6 +982,12 @@ namespace vicmil
         Window() {}
         Window(int width, int height, std::string window_name = "Hello Triangle Minimal")
         {
+            SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 8); // 8-bit alpha
+            SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
+            SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
+            SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
+            SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+
             vicmil::create_window(width, height, &window, window_name);
 
             SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
@@ -1057,6 +1034,11 @@ namespace vicmil
         void show_on_screen()
         {
             GLCall(SDL_GL_SwapWindow(window));
+        }
+        void destroy()
+        {
+            SDL_GL_DeleteContext(gl_context);
+            SDL_DestroyWindow(window);
         }
     };
 
@@ -1162,13 +1144,15 @@ namespace vicmil
     class MouseState
     {
     public:
-        int _x; // The x position in pixels
-        int _y; // The y position in pixels
+        int _x;     // The x position in pixels
+        int _y;     // The y position in pixels
+        int _raw_x; // The raw x position in pixels
+        int _raw_y; // The raw y position in pixels
         Uint32 _button_state;
         MouseState() {}
         MouseState(SDL_Window *window)
         { // May not work if update_SDL has not been called for a while
-            _button_state = SDL_GetMouseState(&_x, &_y);
+            _button_state = SDL_GetMouseState(&_raw_x, &_raw_y);
 
 // If there is a discrepancy between the internal window size of sdl and outside(such as when running in the browser)
 //   then we may need to update the position of the mouse to get the "actual position"
@@ -1177,8 +1161,8 @@ namespace vicmil
             SDL_GL_GetDrawableSize(window, &internal_width, &internal_height);
             int external_width, external_height;
             get_window_size(window, external_width, external_height);
-            _x = _x * double(external_width) / internal_width;
-            _y = _y * double(external_height) / internal_height;
+            _x = _raw_x * double(external_width) / internal_width;
+            _y = _raw_y * double(external_height) / internal_height;
 #endif
         }
         int x() const
@@ -1883,33 +1867,94 @@ namespace vicmil
             return vertex_buffer;
         }
 
-        void draw_2d_CoordColor_XYZRGBA_f_vertex_buffer(std::vector<vicmil::CoordColor_XYZRGBA_f> &vertices)
+        //
+        // Draw from vertex buffer
+        //
+
+        void draw_2d_CoordColor_XYZRGBA_f_vertex_buffer(vicmil::VertexBuffer &vertex_buffer)
         {
             gpu_program_CoordColor_XYZRGBA_f_no_proj.bind_program();
+            vertex_buffer.bind();
             vicmil::DefaultGpuPrograms::set_vertex_buffer_layout_CoordColor_XYZRGBA_f(gpu_program_CoordColor_XYZRGBA_f_no_proj);
-            default_vertex_buffer.bind();
-            default_vertex_buffer.overwrite_vertex_vector(vertices);
-            default_vertex_buffer.draw_triangles();
+            vertex_buffer.draw_triangles();
         }
-        void draw_2d_CoordTexCoord_XYZUV_f_vertex_buffer(std::vector<vicmil::CoordTexCoord_XYZUV_f> &vertices, vicmil::GPUImage gpu_image)
+        void draw_2d_CoordTexCoord_XYZUV_f_vertex_buffer(vicmil::VertexBuffer &vertex_buffer, vicmil::GPUImage gpu_image)
         {
             gpu_program_CoordTexCoord_XYZUV_f_no_proj.bind_program();
             vicmil::DefaultGpuPrograms::set_vertex_buffer_layout_CoordTexCoord_XYZUV_f(gpu_program_CoordTexCoord_XYZUV_f_no_proj);
-            default_vertex_buffer.bind();
-            default_vertex_buffer.overwrite_vertex_vector(vertices);
+            vertex_buffer.bind();
             gpu_image.texture.bind();
-            default_vertex_buffer.draw_triangles();
+            vertex_buffer.draw_triangles();
         }
-        void draw_3d_CoordColor_XYZRGBA_f_vertex_buffer(std::vector<vicmil::CoordColor_XYZRGBA_f> &vertices, glm::mat4 transform_matrix)
+        void draw_3d_CoordColor_XYZRGBA_f_vertex_buffer(vicmil::VertexBuffer &vertex_buffer, glm::mat4 transform_matrix)
         {
             gpu_program_CoordColor_XYZRGBA_f_proj.bind_program();
+            vertex_buffer.bind();
             vicmil::DefaultGpuPrograms::set_vertex_buffer_layout_CoordColor_XYZRGBA_f(gpu_program_CoordColor_XYZRGBA_f_proj);
+            default_uniform_buffer.set_matrix(transform_matrix, gpu_program_CoordColor_XYZRGBA_f_proj.id);
+            vertex_buffer.draw_triangles();
+        }
+        void draw_3d_CoordTexCoord_XYZUV_f_vertex_buffer(vicmil::VertexBuffer &vertex_buffer, vicmil::GPUImage &gpu_image, glm::mat4 transform_matrix)
+        {
+            gpu_program_CoordTexCoord_XYZUV_f_proj.bind_program();
+            gpu_image.texture.bind();
+            vertex_buffer.bind();
+            vicmil::DefaultGpuPrograms::set_vertex_buffer_layout_CoordTexCoord_XYZUV_f(gpu_program_CoordTexCoord_XYZUV_f_proj);
+            default_uniform_buffer.set_matrix(transform_matrix, gpu_program_CoordTexCoord_XYZUV_f_proj.id);
+            vertex_buffer.draw_triangles();
+        }
+
+        //
+        // Draw from index vertex buffer
+        //
+
+        void draw_3d_CoordColor_XYZRGBA_f_index_vertex_buffer(vicmil::IndexVertexBufferPair &index_vertex_buffer, glm::mat4 transform_matrix)
+        {
+            gpu_program_CoordColor_XYZRGBA_f_proj.bind_program();
+            index_vertex_buffer.bind();
+            vicmil::DefaultGpuPrograms::set_vertex_buffer_layout_CoordColor_XYZRGBA_f(gpu_program_CoordColor_XYZRGBA_f_proj);
+            default_uniform_buffer.set_matrix(transform_matrix, gpu_program_CoordColor_XYZRGBA_f_proj.id);
+            index_vertex_buffer.draw_triangles();
+        }
+        void draw_3d_CoordTexCoord_XYZUV_f_index_vertex_buffer(vicmil::IndexVertexBufferPair &index_vertex_buffer, vicmil::GPUImage &gpu_image, glm::mat4 transform_matrix)
+        {
+            gpu_program_CoordTexCoord_XYZUV_f_proj.bind_program();
+            gpu_image.texture.bind();
+            index_vertex_buffer.bind();
+            vicmil::DefaultGpuPrograms::set_vertex_buffer_layout_CoordTexCoord_XYZUV_f(gpu_program_CoordTexCoord_XYZUV_f_proj);
+            default_uniform_buffer.set_matrix(transform_matrix, gpu_program_CoordTexCoord_XYZUV_f_proj.id);
+            index_vertex_buffer.draw_triangles();
+        }
+
+        //
+        // Draw from vertices
+        //
+
+        void draw_2d_CoordColor_XYZRGBA_f_vertices(std::vector<vicmil::CoordColor_XYZRGBA_f> &vertices)
+        {
             default_vertex_buffer.bind();
             default_vertex_buffer.overwrite_vertex_vector(vertices);
-            default_uniform_buffer.set_matrix(transform_matrix, gpu_program_CoordColor_XYZRGBA_f_proj.id);
-            default_vertex_buffer.draw_triangles();
+            draw_2d_CoordColor_XYZRGBA_f_vertex_buffer(default_vertex_buffer);
         }
-        void draw_3d_CoordColor_XYZRGBA_f_vertex_buffer_as_points(std::vector<vicmil::CoordColor_XYZRGBA_f> &vertices, glm::mat4 transform_matrix)
+        void draw_2d_CoordTexCoord_XYZUV_f_vertices(std::vector<vicmil::CoordTexCoord_XYZUV_f> &vertices, vicmil::GPUImage gpu_image)
+        {
+            default_vertex_buffer.bind();
+            default_vertex_buffer.overwrite_vertex_vector(vertices);
+            draw_2d_CoordTexCoord_XYZUV_f_vertex_buffer(default_vertex_buffer, gpu_image);
+        }
+        void draw_3d_CoordColor_XYZRGBA_f_vertices(std::vector<vicmil::CoordColor_XYZRGBA_f> &vertices, glm::mat4 transform_matrix)
+        {
+            default_vertex_buffer.bind();
+            default_vertex_buffer.overwrite_vertex_vector(vertices);
+            draw_3d_CoordColor_XYZRGBA_f_vertex_buffer(default_vertex_buffer, transform_matrix);
+        }
+        void draw_3d_CoordTexCoord_XYZUV_f_vertices(std::vector<vicmil::CoordTexCoord_XYZUV_f> &vertices, vicmil::GPUImage gpu_image, glm::mat4 transform_matrix)
+        {
+            default_vertex_buffer.bind();
+            default_vertex_buffer.overwrite_vertex_vector(vertices);
+            draw_3d_CoordTexCoord_XYZUV_f_vertex_buffer(default_vertex_buffer, gpu_image, transform_matrix);
+        }
+        void draw_3d_CoordColor_XYZRGBA_f_vertices_as_points(std::vector<vicmil::CoordColor_XYZRGBA_f> &vertices, glm::mat4 transform_matrix)
         {
             gpu_program_CoordColor_XYZRGBA_f_proj.bind_program();
             vicmil::DefaultGpuPrograms::set_vertex_buffer_layout_CoordColor_XYZRGBA_f(gpu_program_CoordColor_XYZRGBA_f_proj);
@@ -1917,16 +1962,6 @@ namespace vicmil
             default_vertex_buffer.overwrite_vertex_vector(vertices);
             default_uniform_buffer.set_matrix(transform_matrix, gpu_program_CoordColor_XYZRGBA_f_proj.id);
             default_vertex_buffer.draw_points();
-        }
-        void draw_3d_CoordTexCoord_XYZUV_f_vertex_buffer(std::vector<vicmil::CoordTexCoord_XYZUV_f> &vertices, vicmil::GPUImage gpu_image, glm::mat4 transform_matrix)
-        {
-            gpu_program_CoordTexCoord_XYZUV_f_proj.bind_program();
-            vicmil::DefaultGpuPrograms::set_vertex_buffer_layout_CoordTexCoord_XYZUV_f(gpu_program_CoordTexCoord_XYZUV_f_proj);
-            gpu_image.texture.bind();
-            default_vertex_buffer.bind();
-            default_vertex_buffer.overwrite_vertex_vector(vertices);
-            default_uniform_buffer.set_matrix(transform_matrix, gpu_program_CoordTexCoord_XYZUV_f_proj.id);
-            default_vertex_buffer.draw_triangles();
         }
     };
 }
