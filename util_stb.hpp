@@ -49,12 +49,37 @@ namespace vicmil
         return return_image;
     }
 
-    void ImageRGBA_UChar_save_as_png(const ImageRGBA_UChar &image, std::string filename)
+    void ImageRGBA_UChar_save_as_png(const ImageRGBA_UChar &image, std::string file_path)
     {
         int comp = 4; // r, g, b, a
         const void *data = image.get_pixel_data_const();
         int stride_in_bytes = 0;
-        stbi_write_png(filename.c_str(), image.w, image.h, comp, data, stride_in_bytes);
+        stbi_write_png(file_path.c_str(), image.w, image.h, comp, data, stride_in_bytes);
+    }
+
+    void ImageRGBA_UChar_save_as_jpg(const ImageRGBA_UChar &image, std::string file_path)
+    {
+        int comp = 4; // r, g, b, a
+        const void *data = image.get_pixel_data_const();
+        int stride_in_bytes = 0;
+        stbi_write_jpg(file_path.c_str(), image.w, image.h, comp, data, stride_in_bytes);
+    }
+
+    void ImageRGBA_UChar_save_to_file(const ImageRGBA_UChar &image, std::string file_path)
+    {
+        std::string file_ext = vicmil::get_file_extension(file_path);
+        if (file_ext == "png")
+        {
+            return ImageRGBA_UChar_save_as_png(image, file_path);
+        }
+        else if (file_ext == "jpg" || file_ext == "jpeg")
+        {
+            return ImageRGBA_UChar_save_as_jpg(image, file_path);
+        }
+        else
+        {
+            ThrowError("Unknown file extension: " + file_path);
+        }
     }
 
     std::vector<unsigned char> ImageRGBA_UChar_to_png_as_bytes(const ImageRGBA_UChar &image)
@@ -157,12 +182,15 @@ namespace vicmil
 
         RectT<int> _get_character_bounding_box(const int character)
         {
-            int ax;
-            int lsb;
+            int ax = 0;
+            int lsb = 0;
             stbtt_GetCodepointHMetrics(&info, character, &ax, &lsb);
 
             // Get bounding box for character (may be offset to account for chars that dip above or below the line)
-            int c_x1, c_y1, c_x2, c_y2;
+            int c_x1 = 0;
+            int c_y1 = 0;
+            int c_x2 = 0;
+            int c_y2 = 0;
             stbtt_GetCodepointBitmapBox(&info, character, scale, scale, &c_x1, &c_y1, &c_x2, &c_y2);
             return RectT<int>(c_x1, c_y1, c_x2 - c_x1, c_y2 - c_y1);
         }
