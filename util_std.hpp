@@ -25,8 +25,9 @@ Contains documentation for how to do some things using the standard library: Eve
 #include <vector> // Contains std::vector
 #include <list>   // Contains std::list
 
-#include <math.h>            // Includes basic math operations such as sinus, cosinus etc.
-#include <cassert>           // For assering values during runtime
+#include <math.h>  // Includes basic math operations such as sinus, cosinus etc.
+#include <cassert> // For assering values during runtime
+#include <stdexcept>
 #include <regex>             // Includes functions for regex
 #include <chrono>            // Includes functions related to time
 #include <thread>            // Includes functions for handling multi-thread applications
@@ -53,6 +54,16 @@ Contains documentation for how to do some things using the standard library: Eve
 #define OS_Linux
 #elif defined(_WIN32) || defined(WIN32) /* _Win32 is usually defined by compilers targeting 32 or   64 bit Windows systems */
 #define OS_Windows
+#endif
+
+#ifdef _WIN32
+#include <windows.h>
+#elif __APPLE__
+#include <mach-o/dyld.h>
+#include <limits.h>
+#else // Linux/Unix
+#include <unistd.h>
+#include <limits.h>
 #endif
 
 // ============================================================
@@ -819,10 +830,28 @@ example: "{123.321, 314.0, 42.0}"
         // NOTE! This will move the read/write position
         unsigned int get_file_size()
         {
+            file.clear();                // reset EOF/fail bits just in case
+            auto current = file.tellg(); // save current read pos
             file.seekg(0, std::ios::end);
-            return get_read_write_position();
+            auto size = file.tellg();
+            file.seekg(current); // restore pos
+            return static_cast<unsigned int>(size);
         }
     };
+
+    std::string get_file_extension(const std::string &file_path)
+    {
+        auto pos = file_path.find_last_of('.');
+        if (pos == std::string::npos)
+        {
+            return ""; // no extension
+        }
+
+        std::string ext = file_path.substr(pos + 1);
+        // convert to lowercase for consistency
+        std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+        return ext;
+    }
 
     // ============================================================
     //                           Time
@@ -1309,4 +1338,60 @@ example: "{123.321, 314.0, 42.0}"
         }
     };
     typedef RectT<double> Rect;
+
+#ifdef __EMSCRIPTEN__
+    std::string get_executable_path()
+    {
+        // Emscripten/WebAssembly has no concept of executable path
+        return "";
+    }
+#else
+    std::string get_executable_path()
+    {
+        char buffer[PATH_MAX];
+
+#ifdef _WIN32
+        DWORD size = GetModuleFileNameA(NULL, buffer, PATH_MAX);
+        if (size == 0)
+            return "";
+#elif __APPLE__
+        uint32_t size = sizeof(buffer);
+        if (_NSGetExecutablePath(buffer, &size) != 0)
+            return "";
+#else
+        ssize_t size = readlink("/proc/self/exe", buffer, PATH_MAX - 1);
+        if (size == -1)
+            return "";
+        buffer[size] = '\0'; // Null terminate
+#endif
+
+        return std::string(buffer);
+    }
+#endif
+
+    // Helper function: returns the directory path, going up 'upDirectories' levels
+    std::string get_directory_path(const std::string &path, unsigned int upDirectories = 0)
+    {
+        std::string normalizedPath = path;
+        // Replace backslashes with forward slashes for cross-platform consistency
+        for (auto &ch : normalizedPath)
+        {
+            if (ch == '\\')
+                ch = '/';
+        }
+
+        // Remove the filename and go up the specified number of directories
+        for (unsigned int i = 0; i <= upDirectories; ++i)
+        {
+            std::size_t pos = normalizedPath.find_last_of('/');
+            if (pos == std::string::npos)
+            {
+                // Reached the root or invalid path
+                return "";
+            }
+            normalizedPath = normalizedPath.substr(0, pos);
+        }
+
+        return normalizedPath;
+    }
 }

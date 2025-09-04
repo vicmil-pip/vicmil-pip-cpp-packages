@@ -245,6 +245,26 @@ namespace vicmil
         }
     };
 
+    struct TriangleIndices_V012_i
+    {
+        int v0 = -1;
+        int v1 = -1;
+        int v2 = -1;
+        TriangleIndices_V012_i() {}
+        TriangleIndices_V012_i(int v0_, int v1_, int v2_)
+        {
+            v0 = v0_;
+            v1 = v1_;
+            v2 = v2_;
+        }
+        std::string to_string() const
+        {
+            std::ostringstream oss;
+            oss << "TriangleIndices(" << v0 << ", " << v1 << ", " << v2 << ")";
+            return oss.str();
+        }
+    };
+
     /**
      * Generate all kinds of random numbers, from floats to integers in different ranges!
      */
