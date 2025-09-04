@@ -245,23 +245,44 @@ namespace vicmil
         }
     };
 
-    struct TriangleIndices_V012_i
+    struct TriangleIndices_i3
     {
-        int v0 = -1;
-        int v1 = -1;
-        int v2 = -1;
-        TriangleIndices_V012_i() {}
-        TriangleIndices_V012_i(int v0_, int v1_, int v2_)
-        {
-            v0 = v0_;
-            v1 = v1_;
-            v2 = v2_;
-        }
+        // The indicies refer to the vertex buffer
+        // Three vertices (corners) becomes a triangle
+        int vertex_indices[3] = {-1, -1, -1};
+
+        int &v0 = vertex_indices[0];
+        int &v1 = vertex_indices[1];
+        int &v2 = vertex_indices[2];
+
+        TriangleIndices_i3() {}
+        TriangleIndices_i3(int v0_, int v1_, int v2_) : v0(v0_), v1(v1_), v2(v2_) {}
         std::string to_string() const
         {
             std::ostringstream oss;
             oss << "TriangleIndices(" << v0 << ", " << v1 << ", " << v2 << ")";
             return oss.str();
+        }
+
+        static TriangleIndices_i3 from_str(std::string i1, std::string i2, std::string i3)
+        {
+            return TriangleIndices_i3(std::stof(i1), std::stof(i2), std::stof(i3));
+        }
+        /**
+         * If we assume that the triangles are laid out linearly in index buffer, eg just one triangle after the other
+         *   Then we can just get the indecies very simply by:
+         */
+        static std::vector<TriangleIndices_i3> linear_indexed_triangles(int triangle_count)
+        {
+            std::vector<TriangleIndices_i3> vec;
+            vec.resize(triangle_count);
+            for (int i = 0; i < triangle_count; i++)
+            {
+                vec[i].v0 = i * 3 + 0;
+                vec[i].v1 = i * 3 + 1;
+                vec[i].v2 = i * 3 + 2;
+            }
+            return vec;
         }
     };
 
