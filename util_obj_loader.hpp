@@ -16,10 +16,7 @@ namespace vicmil
         unsigned int material_id;
     };
 
-    struct Face
-    {
-        int vertex_indices[3];
-    };
+    typedef TriangleIndices_i3 Face;
 
     struct Material
     {
@@ -117,13 +114,13 @@ namespace vicmil
             }
             return ret_vec;
         }
-        std::vector<TriangleIndices_V012_i> get_vertex_triangle_indicies() const
+        std::vector<TriangleIndices_i3> get_vertex_triangle_indicies() const
         { // int vert1, int vert2, int vert3
-            std::vector<TriangleIndices_V012_i> ret_vec = std::vector<TriangleIndices_V012_i>();
+            std::vector<TriangleIndices_i3> ret_vec = std::vector<TriangleIndices_i3>();
             ret_vec.reserve(faces.size());
             for (int i = 0; i < faces.size(); i++)
             {
-                ret_vec.push_back(TriangleIndices_V012_i(faces[i].vertex_indices[0], faces[i].vertex_indices[1], faces[i].vertex_indices[2]));
+                ret_vec.push_back(TriangleIndices_i3(faces[i].vertex_indices[0], faces[i].vertex_indices[1], faces[i].vertex_indices[2]));
             }
             return ret_vec;
         }
@@ -619,11 +616,11 @@ namespace vicmil
     public:
         // Vertex buffer for colors
         std::vector<CoordColor_XYZRGBA_f> color_vertex_buffer = {};
-        std::vector<TriangleIndices_V012_i> color_index_buffer = {};
+        std::vector<TriangleIndices_i3> color_index_buffer = {};
 
         // Vertex buffer for texture coordinates, for each image
         std::vector<std::vector<CoordTexCoord_XYZUV_f>> texture_coord_buffer = {};
-        std::vector<std::vector<TriangleIndices_V012_i>> texture_index_buffer = {};
+        std::vector<std::vector<TriangleIndices_i3>> texture_index_buffer = {};
         std::vector<std::string> texture_names = {};
 
         void from_mesh(const Mesh &mesh)
@@ -633,7 +630,7 @@ namespace vicmil
 
             std::vector<vicmil::Coord_XYZ_f> vertex_coordinates = mesh.get_vertex_coordinates();
             std::vector<int> vertex_material_indices = mesh.get_vertex_material_indices();
-            std::vector<TriangleIndices_V012_i> vertex_triangle_indicies = mesh.get_vertex_triangle_indicies();
+            std::vector<TriangleIndices_i3> vertex_triangle_indicies = mesh.get_vertex_triangle_indicies();
             std::vector<vicmil::TexCoord_UV_f> vertex_texture_coordinates = mesh.get_vertex_texture_coordinates();
             std::vector<std::string> material_texture_names = mesh.get_material_texture_names();
             std::vector<ColorRGBA_f> material_colors = mesh.get_material_colors();
@@ -678,21 +675,21 @@ namespace vicmil
                 }
             }
 
-            std::vector<std::vector<TriangleIndices_V012_i>> tmp_texture_indices;
+            std::vector<std::vector<TriangleIndices_i3>> tmp_texture_indices;
             tmp_texture_indices.resize(material_texture_names.size());
             for (int i = 0; i < vertex_triangle_indicies.size(); i++)
             {
                 int material_id = vertex_material_indices[vertex_triangle_indicies[i].v0];
                 if (!material_has_texture[material_id])
                 {
-                    color_index_buffer.push_back(TriangleIndices_V012_i(
+                    color_index_buffer.push_back(TriangleIndices_i3(
                         old_index_to_new_index[vertex_triangle_indicies[i].v0],
                         old_index_to_new_index[vertex_triangle_indicies[i].v1],
                         old_index_to_new_index[vertex_triangle_indicies[i].v2]));
                 }
                 else
                 {
-                    tmp_texture_indices[material_id].push_back(TriangleIndices_V012_i(
+                    tmp_texture_indices[material_id].push_back(TriangleIndices_i3(
                         old_index_to_new_index[vertex_triangle_indicies[i].v0],
                         old_index_to_new_index[vertex_triangle_indicies[i].v1],
                         old_index_to_new_index[vertex_triangle_indicies[i].v2]));
